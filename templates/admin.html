@@ -155,7 +155,7 @@
                 <div style="font-weight:600;font-size:13px;">{{ task.title_en }}</div>
                 <div style="font-size:11px;color:var(--text-muted);">{{ task.title_bg }}</div>
               </td>
-              <td style="white-space:nowrap;">{{ task.date.strftime('%-d %b %Y') }}</td>
+              <td style="white-space:nowrap;">{{ task.date|fdate('%-d %b %Y') }}</td>
               <td style="font-size:12px;">{{ task.location_name }}</td>
               <td><span style="background:var(--green-light);color:var(--green);font-weight:700;padding:2px 8px;border-radius:12px;font-size:12px;">{{ task.points }}</span></td>
               <td style="text-align:center;">{{ task.completions|length }}</td>
@@ -218,7 +218,7 @@
               <td style="font-size:12px;color:var(--text-muted);">{{ user.email }}</td>
               <td><span style="font-weight:800;color:var(--green);">{{ user.points }}</span></td>
               <td>🔥 {{ user.streak }}</td>
-              <td style="font-size:12px;color:var(--text-muted);">{{ user.created_at.strftime('%-d %b %Y') }}</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ user.created_at|fdate('%-d %b %Y') }}</td>
             </tr>
             {% else %}
             <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">No users yet.</td></tr>
@@ -273,7 +273,7 @@
                 {{ c.ai_feedback[:80] if c.ai_feedback else '—' }}{% if c.ai_feedback and c.ai_feedback|length > 80 %}…{% endif %}
               </td>
               <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
-                {{ c.completed_at.strftime('%-d %b, %H:%M') }}
+                {{ c.completed_at|fdate('%-d %b, %H:%M') }}
               </td>
             </tr>
             {% else %}

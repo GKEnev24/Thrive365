@@ -6,7 +6,7 @@
 <div class="page-header">
   <h1 class="page-title">{{ "Today's Challenges" if lang == 'en' else 'Днешните предизвикателства' }}</h1>
   <p class="page-subtitle">
-    📅 {{ today.strftime('%A, %B %-d') if lang == 'en' else today.strftime('%-d.%m.%Y') }}
+    📅 {{ today|fdate('%A, %B %-d') if lang == 'en' else today|fdate('%-d.%m.%Y') }}
     &nbsp;·&nbsp; 🔥 {{ current_user.streak }}-{{ 'day streak' if lang == 'en' else 'дневна серия' }}
   </p>
 </div>

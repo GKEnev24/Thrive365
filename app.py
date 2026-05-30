@@ -1,9 +1,10 @@
 import os
 import uuid
-import json
-import base64
 from datetime import datetime, date, timedelta
 from functools import wraps
+
+from dotenv import load_dotenv
+load_dotenv()  # load .env (GEMINI_API_KEY, etc.) before anything reads os.environ
 
 from flask import (Flask, render_template, redirect, url_for, session,
                    request, jsonify, flash)
@@ -13,6 +14,7 @@ from werkzeug.utils import secure_filename
 
 from models import db, User, Task, TaskCompletion, Prize, Redemption, Badge, UserBadge
 from database import seed_db
+import thriveai
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'thrive365-dev-secret-key-change-in-production')
@@ -31,7 +33,6 @@ oauth = OAuth(app)
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 google = None
@@ -72,6 +73,31 @@ def inject_globals():
     }
 
 
+@app.template_filter('fdate')
+def fdate(value, fmt='%d %b %Y'):
+    """Cross-platform date/datetime formatting for templates.
+
+    glibc no-padding tokens (%-d, %-m, %-H, ...) are NOT supported on Windows
+    and raise `ValueError: Invalid format string`. We substitute them manually
+    so the same templates render on every OS. Only touches the time attributes
+    actually requested, so it works for both `date` and `datetime` values.
+    """
+    if value is None:
+        return ''
+    substitutions = {
+        '%-d': lambda: str(value.day),
+        '%-m': lambda: str(value.month),
+        '%-H': lambda: str(value.hour),
+        '%-I': lambda: str((value.hour % 12) or 12),
+        '%-M': lambda: str(value.minute),
+        '%-S': lambda: str(value.second),
+    }
+    for token, resolver in substitutions.items():
+        if token in fmt:
+            fmt = fmt.replace(token, resolver())
+    return value.strftime(fmt)
+
+
 def update_streak(user):
     today = date.today()
     if user.last_active_date is None:
@@ -109,58 +135,8 @@ def check_and_award_badges(user):
 
 
 def verify_task_with_ai(task, photo_path):
-    if not ANTHROPIC_API_KEY:
-        return True, "Great eco-action! Your contribution to a greener Burgas is verified. 🌿"
-
-    try:
-        import anthropic as anthropic_sdk
-        client = anthropic_sdk.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-        with open(photo_path, 'rb') as f:
-            image_data = base64.standard_b64encode(f.read()).decode('utf-8')
-
-        ext = photo_path.lower().rsplit('.', 1)[-1]
-        media_type = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
-                      'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/jpeg')
-
-        prompt = f"""You are an AI verifier for Thrive365, a gamified sustainability app in Burgas, Bulgaria.
-
-Task: "{task.title_en}"
-Task description: "{task.description_en}"
-
-Analyze this photo and determine if the user has genuinely attempted or completed this eco-task.
-Be encouraging and accept reasonable attempts. Reject only if the image is completely unrelated to the task.
-
-Respond ONLY with valid JSON, no extra text:
-{{"verified": true, "feedback": "Encouraging 1-2 sentence message acknowledging their specific eco-action"}}
-or
-{{"verified": false, "feedback": "Gentle 1-2 sentence explanation of why and what photo to upload instead"}}"""
-
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}},
-                    {"type": "text", "text": prompt}
-                ]
-            }]
-        )
-
-        text = message.content[0].text.strip()
-        if '```' in text:
-            parts = text.split('```')
-            text = parts[1].strip()
-            if text.startswith('json'):
-                text = text[4:].strip()
-
-        result = json.loads(text)
-        return result.get('verified', True), result.get('feedback', 'Task reviewed!')
-
-    except Exception as e:
-        print(f"AI verification error: {e}")
-        return True, "Wonderful eco-action! Keep contributing to a greener Burgas! 🌿"
+    """Verify a task photo via ThriveAI (Gemini → local Ollama → heuristic)."""
+    return thriveai.verify_image(task, photo_path, lang=get_lang())
 
 
 # ─── Auth routes ──────────────────────────────────────────────────────────────
@@ -440,6 +416,83 @@ def redeem_prize(prize_id):
         'prize_title': prize.title_en if lang == 'en' else prize.title_bg,
         'remaining_points': current_user.points
     })
+
+
+# ─── ThriveAI assistant routes ─────────────────────────────────────────────────
+
+def build_thriveai_context():
+    """Snapshot of the current user's live state, fed to ThriveAI for grounded answers."""
+    user = current_user
+    today = date.today()
+    lang = get_lang()
+
+    completed_ids = {
+        tc.task_id for tc in TaskCompletion.query
+        .filter_by(user_id=user.id, verified=True).all()
+        if tc.task and tc.task.date == today
+    }
+    today_tasks = []
+    for t in Task.query.filter_by(date=today).order_by(Task.id).all():
+        today_tasks.append({
+            'title': t.title_en if lang == 'en' else t.title_bg,
+            'points': t.points,
+            'location': t.location_name,
+            'done': t.id in completed_ids,
+        })
+
+    earned_ids = {ub.badge_id for ub in UserBadge.query.filter_by(user_id=user.id).all()}
+    earned_badges = [b.name for b in Badge.query.all() if b.id in earned_ids]
+
+    next_prize = (Prize.query
+                  .filter(Prize.points_cost <= user.points, Prize.stock > 0)
+                  .order_by(Prize.points_cost.desc()).first())
+    if not next_prize:
+        next_prize = Prize.query.filter(Prize.stock > 0).order_by(Prize.points_cost).first()
+
+    rank = User.query.filter(User.points > user.points).count() + 1
+
+    return {
+        'name': user.name,
+        'points': user.points,
+        'streak': user.streak,
+        'rank': rank,
+        'today_tasks': today_tasks,
+        'earned_badges': earned_badges,
+        'next_prize': ({'title': next_prize.title_en if lang == 'en' else next_prize.title_bg,
+                        'cost': next_prize.points_cost} if next_prize else None),
+    }
+
+
+@app.route('/thriveai')
+@login_required
+def thriveai_page():
+    return render_template('thriveai.html', engine=thriveai.active_engine())
+
+
+@app.route('/api/thriveai/chat', methods=['POST'])
+@login_required
+def thriveai_chat():
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    if not message:
+        return jsonify({'success': False, 'message': 'Empty message.'}), 400
+    if len(message) > 2000:
+        message = message[:2000]
+
+    history = data.get('history') or []
+    clean_history = [
+        {'role': h.get('role'), 'content': str(h.get('content', ''))}
+        for h in history
+        if isinstance(h, dict) and h.get('role') in ('user', 'assistant')
+    ]
+
+    result = thriveai.chat(
+        message,
+        history=clean_history,
+        lang=get_lang(),
+        context=build_thriveai_context(),
+    )
+    return jsonify({'success': True, 'reply': result['reply'], 'engine': result['engine']})
 
 
 # ─── Admin routes ──────────────────────────────────────────────────────────────

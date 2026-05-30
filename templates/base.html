@@ -86,9 +86,46 @@
 
 </div><!-- /page-wrapper -->
 
+{% if current_user.is_authenticated and request.endpoint != 'thriveai_page' %}
+<!-- ThriveAI floating chat widget -->
+<button class="thriveai-fab" id="thriveai-fab" onclick="ThriveAI.toggle()"
+        title="{{ 'Ask ThriveAI' if lang == 'en' else 'Питай ThriveAI' }}"
+        aria-label="ThriveAI">
+  <span class="thriveai-fab-icon">🌱</span>
+</button>
+
+<div class="thriveai-widget" id="thriveai-widget" aria-hidden="true">
+  <div class="thriveai-widget-header">
+    <div class="thriveai-widget-id">
+      <span class="thriveai-avatar">🌱</span>
+      <div>
+        <div class="thriveai-name">ThriveAI</div>
+        <div class="thriveai-status">{{ 'Your green guide' if lang == 'en' else 'Твоят зелен помощник' }}</div>
+      </div>
+    </div>
+    <div class="thriveai-widget-actions">
+      <a href="{{ url_for('thriveai_page') }}" class="thriveai-icon-btn"
+         title="{{ 'Open full page' if lang == 'en' else 'Отвори на цял екран' }}">⤢</a>
+      <button class="thriveai-icon-btn" onclick="ThriveAI.toggle()" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="thriveai-messages" id="thriveai-messages"></div>
+  <form class="thriveai-input-bar" id="thriveai-form" onsubmit="return ThriveAI.send(event)">
+    <input type="text" id="thriveai-input" class="thriveai-input" autocomplete="off"
+           placeholder="{{ 'Ask me anything…' if lang == 'en' else 'Питай ме нещо…' }}">
+    <button type="submit" class="thriveai-send-btn" aria-label="Send">➤</button>
+  </form>
+</div>
+{% endif %}
+
 <div class="toast-container"></div>
 
+<script>
+  window.THRIVEAI_LANG = "{{ lang }}";
+  window.THRIVEAI_NAME = "{{ current_user.name.split(' ')[0] if current_user.is_authenticated else '' }}";
+</script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/thriveai.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

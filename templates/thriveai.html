@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}ThriveAI{% endblock %}
+
+{% block content %}
+<div class="thriveai-page">
+
+  <div class="thriveai-page-hero">
+    <div class="thriveai-hero-avatar">🌱</div>
+    <div>
+      <h1 class="thriveai-hero-name">ThriveAI</h1>
+      <p class="thriveai-hero-tag">
+        {{ 'Your AI guide to a greener Burgas' if lang == 'en' else 'Твоят AI помощник за по-зелен Бургас' }}
+      </p>
+    </div>
+  </div>
+
+  <div class="thriveai-suggestions" id="thriveai-suggestions">
+    <button class="thriveai-chip" onclick="ThriveAI.suggest(this)">
+      {{ "What should I do today?" if lang == 'en' else 'Какво да направя днес?' }}
+    </button>
+    <button class="thriveai-chip" onclick="ThriveAI.suggest(this)">
+      {{ "How do I earn more points?" if lang == 'en' else 'Как да спечеля повече точки?' }}
+    </button>
+    <button class="thriveai-chip" onclick="ThriveAI.suggest(this)">
+      {{ "Give me a recycling tip" if lang == 'en' else 'Дай ми съвет за рециклиране' }}
+    </button>
+    <button class="thriveai-chip" onclick="ThriveAI.suggest(this)">
+      {{ "What can I buy in the Shop?" if lang == 'en' else 'Какво мога да купя в Магазина?' }}
+    </button>
+  </div>
+
+  <div class="thriveai-messages thriveai-messages-page" id="thriveai-messages"></div>
+
+  <form class="thriveai-input-bar thriveai-input-bar-page" id="thriveai-form"
+        onsubmit="return ThriveAI.send(event)">
+    <input type="text" id="thriveai-input" class="thriveai-input" autocomplete="off"
+           placeholder="{{ 'Ask me anything about going green…' if lang == 'en' else 'Питай ме за зелен живот…' }}">
+    <button type="submit" class="thriveai-send-btn" aria-label="Send">➤</button>
+  </form>
+
+</div>
+{% endblock %}

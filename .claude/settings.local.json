@@ -21,7 +21,9 @@
       "Bash(git -C /Users/valeritenev/Project/Thrive365 remote -v)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "PowerShell(Get-CimInstance Win32_VideoController | Select-Object Name, @{N='VRAM_GB';E={[math]::Round\\($_.AdapterRAM/1GB,1\\)}}, DriverVersion; Write-Output \"---CPU/RAM---\"; Get-CimInstance Win32_ComputerSystem | Select-Object @{N='RAM_GB';E={[math]::Round\\($_.TotalPhysicalMemory/1GB,1\\)}}; Write-Output \"---nvidia-smi---\"; if \\(Get-Command nvidia-smi -ErrorAction SilentlyContinue\\) { nvidia-smi --query-gpu=name,memory.total --format=csv } else { Write-Output \"nvidia-smi not found\" })",
+      "PowerShell(cd D:\\\\BurgasProject\\\\Thrive365; $env:PYTHONIOENCODING=\"utf-8\"; & .\\\\.venv\\\\Scripts\\\\python.exe _smoke_test.py)"
     ]
   }
 }
