@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Thrive365 — Eco Actions for Burgas{% endblock %}
+{% block body_class %}landing-body{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="hero">
+  <span class="hero-city">🇧🇬 Burgas, Bulgaria</span>
+  <div class="hero-logo">🌿</div>
+  <h1 class="hero-title">Thrive365</h1>
+  <p class="hero-tagline">Turn everyday actions into<br>a greener Burgas.</p>
+
+  <div class="hero-buttons">
+    {% if google_enabled %}
+    <a href="{{ url_for('login_google') }}" class="btn-google">
+      <svg class="google-icon" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.8 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3L37.4 9.5C34.2 6.5 29.3 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5 44.5 36.3 44.5 25c0-1.6-.2-3.2-.9-4.9z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 7.9 3L37.4 9.5C34.2 6.5 29.3 4.5 24 4.5c-7.7 0-14.3 4.4-17.7 10.2z"/>
+        <path fill="#4CAF50" d="M24 45.5c5.2 0 9.9-1.9 13.5-5L31.8 36c-2 1.4-4.6 2.3-7.8 2.3-5.2 0-9.5-3.1-11.3-7.6l-6.5 5C9.7 41 16.4 45.5 24 45.5z"/>
+        <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.3 4.1-4.1 5.4l6.4 4.8C42 34.7 44.5 30.2 44.5 25c0-1.6-.2-3.2-.9-4.9z"/>
+      </svg>
+      {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
+    </a>
+    {% endif %}
+    <a href="{{ url_for('login_demo') }}" class="btn-demo">
+      {{ '✨ Try Demo' if lang == 'en' else '✨ Пробвай демо' }}
+    </a>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how-it-works">
+  <p class="section-label">{{ 'How it works' if lang == 'en' else 'Как работи' }}</p>
+  <h2 class="section-title">{{ 'Three steps to a greener city' if lang == 'en' else 'Три стъпки към по-зелен град' }}</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-icon">📋</div>
+      <div>
+        <div class="step-num">{{ 'Step 1' if lang == 'en' else 'Стъпка 1' }}</div>
+        <div class="step-title">{{ 'Complete Eco-Tasks' if lang == 'en' else 'Изпълни еко-задачи' }}</div>
+        <div class="step-desc">{{ 'Every day brings 5 fresh challenges across Burgas — plant, clean, cycle & more.' if lang == 'en' else 'Всеки ден носи 5 нови предизвикателства в Бургас — засаждай, почиствай, карай колело и още.' }}</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon">⚡</div>
+      <div>
+        <div class="step-num">{{ 'Step 2' if lang == 'en' else 'Стъпка 2' }}</div>
+        <div class="step-title">{{ 'Earn Points' if lang == 'en' else 'Спечели точки' }}</div>
+        <div class="step-desc">{{ 'Upload a photo proof. Our AI verifies it and awards you points instantly.' if lang == 'en' else 'Качи снимка като доказателство. Нашият AI я проверява и незабавно ти дава точки.' }}</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-icon">🎁</div>
+      <div>
+        <div class="step-num">{{ 'Step 3' if lang == 'en' else 'Стъпка 3' }}</div>
+        <div class="step-title">{{ 'Win Local Prizes' if lang == 'en' else 'Спечели местни награди' }}</div>
+        <div class="step-desc">{{ 'Redeem points for coffee, transit passes, eco-merch, and more from Burgas partners.' if lang == 'en' else 'Използвай точките за кафе, транспортни карти, еко-стоки и още от партньори в Бургас.' }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats bar -->
+<section style="background:var(--green-light);padding:24px 20px;text-align:center;">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+    <div>
+      <div style="font-size:24px;font-weight:900;color:var(--green);">365</div>
+      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Days / Year' if lang == 'en' else 'Дни в годината' }}</div>
+    </div>
+    <div>
+      <div style="font-size:24px;font-weight:900;color:var(--green);">5</div>
+      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Daily Tasks' if lang == 'en' else 'Дневни задачи' }}</div>
+    </div>
+    <div>
+      <div style="font-size:24px;font-weight:900;color:var(--green);">6+</div>
+      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Prizes' if lang == 'en' else 'Награди' }}</div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="landing-footer">
+  <p>🌍 {{ 'Made for a greener Burgas · ' if lang == 'en' else 'Направено за по-зелен Бургас · ' }}<a href="{{ url_for('admin') }}" style="color:var(--text-muted);">Admin</a></p>
+</footer>
+
+{% endblock %}

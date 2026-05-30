@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Leaderboard' if lang == 'en' else 'Класация' }}{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title">{{ 'Leaderboard' if lang == 'en' else 'Класация' }}</h1>
+  <p class="page-subtitle">{{ 'Top eco-champions of Burgas' if lang == 'en' else 'Топ еко-шампиони на Бургас' }}</p>
+</div>
+
+<!-- Current user rank card -->
+<div class="user-rank-card">
+  <div>
+    <div class="user-rank-label">{{ 'YOUR RANK' if lang == 'en' else 'ТВОЯТА ПОЗИЦИЯ' }}</div>
+    <div class="user-rank-number">#{{ user_rank }}</div>
+  </div>
+  <div style="flex:1;">
+    <div class="user-rank-name">{{ current_user.name }}</div>
+    <div class="user-rank-points">⚡ {{ current_user.points }} {{ 'points' if lang == 'en' else 'точки' }} &nbsp;·&nbsp; 🔥 {{ current_user.streak }}-{{ 'day streak' if lang == 'en' else 'дн. серия' }}</div>
+  </div>
+  {% if current_user.avatar %}
+  <img src="{{ current_user.avatar }}" class="user-avatar" alt="{{ current_user.name }}" style="width:48px;height:48px;">
+  {% else %}
+  <div class="avatar-placeholder" style="width:48px;height:48px;font-size:20px;">
+    {{ current_user.name[0].upper() }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Top 20 list -->
+<div class="leaderboard-list">
+  {% set medals = ['🥇','🥈','🥉'] %}
+
+  {% for user in users %}
+  {% set is_me = user.id == current_user.id %}
+  <div class="leaderboard-item {% if is_me %}is-current-user{% endif %}">
+
+    {% if loop.index <= 3 %}
+    <div class="rank-medal">{{ medals[loop.index0] }}</div>
+    {% else %}
+    <div class="rank-number">{{ loop.index }}</div>
+    {% endif %}
+
+    {% if user.avatar %}
+    <img src="{{ user.avatar }}" class="user-avatar" alt="{{ user.name }}">
+    {% else %}
+    <div class="avatar-placeholder">{{ user.name[0].upper() }}</div>
+    {% endif %}
+
+    <div class="lb-user-info">
+      <div class="lb-user-name">
+        {{ user.name }}{% if is_me %} <span style="font-size:10px;background:var(--green);color:white;padding:1px 6px;border-radius:8px;vertical-align:middle;">{{ 'You' if lang == 'en' else 'Ти' }}</span>{% endif %}
+      </div>
+      <div class="lb-streak">🔥 {{ user.streak }}-{{ 'day streak' if lang == 'en' else 'дн. серия' }}</div>
+    </div>
+
+    <div class="lb-points">{{ user.points }} <span style="font-size:10px;font-weight:500;color:var(--text-muted);">{{ 'pts' if lang == 'en' else 'т.' }}</span></div>
+  </div>
+  {% endfor %}
+
+  {% if not users %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🏆</div>
+    <div class="empty-state-text">{{ 'No rankings yet' if lang == 'en' else 'Все още няма класация' }}</div>
+    <div class="empty-state-sub">{{ 'Complete tasks to appear here!' if lang == 'en' else 'Изпълни задачи, за да се появиш тук!' }}</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1D9E75">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>{% block title %}Thrive365{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+<div class="page-wrapper">
+
+  <!-- Language form (hidden) -->
+  <form id="lang-form" method="POST" action="{{ url_for('switch_language') }}" style="display:none">
+    <input type="hidden" name="lang" value="{{ 'bg' if lang == 'en' else 'en' }}">
+    <input type="hidden" name="next" value="{{ request.path }}">
+  </form>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <a href="{{ url_for('tasks') if current_user.is_authenticated else url_for('index') }}" class="logo">
+        <span class="logo-icon">🌿</span>
+        <span class="logo-text">Thrive365</span>
+      </a>
+      <div class="header-actions">
+        {% if current_user.is_authenticated %}
+        <div class="points-badge">
+          <span>⚡</span>
+          <span>{{ current_user.points }}</span>
+        </div>
+        {% endif %}
+        <button class="lang-toggle" onclick="switchLanguage()" title="Switch language">
+          {{ 'BG' if lang == 'en' else 'EN' }}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-messages" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;padding:8px 16px 0;">
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Main content -->
+  <main class="main-content {% if not current_user.is_authenticated %}no-nav{% endif %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Bottom navigation (authenticated only) -->
+  {% if current_user.is_authenticated %}
+  <nav class="bottom-nav">
+    <a href="{{ url_for('tasks') }}" class="nav-item {% if request.endpoint == 'tasks' %}active{% endif %}">
+      <span class="nav-icon">✅</span>
+      <span class="nav-label">{{ 'Tasks' if lang == 'en' else 'Задачи' }}</span>
+    </a>
+    <a href="{{ url_for('map_page') }}" class="nav-item {% if request.endpoint == 'map_page' %}active{% endif %}">
+      <span class="nav-icon">🗺️</span>
+      <span class="nav-label">{{ 'Map' if lang == 'en' else 'Карта' }}</span>
+    </a>
+    <a href="{{ url_for('leaderboard') }}" class="nav-item {% if request.endpoint == 'leaderboard' %}active{% endif %}">
+      <span class="nav-icon">🏆</span>
+      <span class="nav-label">{{ 'Rank' if lang == 'en' else 'Класация' }}</span>
+    </a>
+    <a href="{{ url_for('shop') }}" class="nav-item {% if request.endpoint == 'shop' %}active{% endif %}">
+      <span class="nav-icon">🎁</span>
+      <span class="nav-label">{{ 'Shop' if lang == 'en' else 'Магазин' }}</span>
+    </a>
+    <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">{{ 'Profile' if lang == 'en' else 'Профил' }}</span>
+    </a>
+  </nav>
+  {% endif %}
+
+</div><!-- /page-wrapper -->
+
+<div class="toast-container"></div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

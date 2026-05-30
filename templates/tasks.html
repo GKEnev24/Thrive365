@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Daily Tasks' if lang == 'en' else 'Дневни задачи' }}{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title">{{ "Today's Challenges" if lang == 'en' else 'Днешните предизвикателства' }}</h1>
+  <p class="page-subtitle">
+    📅 {{ today.strftime('%A, %B %-d') if lang == 'en' else today.strftime('%-d.%m.%Y') }}
+    &nbsp;·&nbsp; 🔥 {{ current_user.streak }}-{{ 'day streak' if lang == 'en' else 'дневна серия' }}
+  </p>
+</div>
+
+{% set done_count = completed_ids | length %}
+{% set total_count = tasks | length %}
+
+<div class="tasks-summary">
+  <div>
+    <div class="tasks-progress-text">{{ done_count }} / {{ total_count }} {{ 'completed' if lang == 'en' else 'изпълнени' }}</div>
+    <div class="progress-bar" style="width:160px;">
+      <div class="progress-fill" style="width:{{ (done_count / total_count * 100) if total_count > 0 else 0 }}%;"></div>
+    </div>
+  </div>
+  <div class="tasks-points-total">
+    ⚡ {{ tasks | sum(attribute='points') }} {{ 'pts available' if lang == 'en' else 'т. налични' }}
+  </div>
+</div>
+
+{% set task_emojis = ['🌱', '🗑️', '🚲', '📸', '🦩'] %}
+
+{% for task in tasks %}
+{% set is_done = task.id in completed_ids %}
+<div class="task-card {% if is_done %}task-completed{% endif %}" data-task-id="{{ task.id }}">
+  <div class="task-header">
+    <div class="task-emoji">{{ task_emojis[loop.index0 % task_emojis|length] }}</div>
+    <div class="task-meta">
+      <div class="task-title">{{ task.title_en if lang == 'en' else task.title_bg }}</div>
+      <div class="task-location">📍 {{ task.location_name }}</div>
+    </div>
+    <div class="task-points">+{{ task.points }}</div>
+  </div>
+
+  <p class="task-desc">{{ task.description_en if lang == 'en' else task.description_bg }}</p>
+
+  <div class="task-footer">
+    {% if is_done %}
+    <div class="task-done-badge">
+      <span>✅</span>
+      <span>{{ 'Completed' if lang == 'en' else 'Изпълнено' }}</span>
+    </div>
+    {% else %}
+    <button class="btn btn-primary btn-sm complete-btn"
+      onclick="openTaskModal({{ task.id }}, '{{ (task.title_en if lang == 'en' else task.title_bg)|replace("'","\\'")|replace('"','&quot;') }}', {{ task.points }})">
+      {{ '✅ Complete Task' if lang == 'en' else '✅ Изпълни задача' }}
+    </button>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% if not tasks %}
+<div class="empty-state">
+  <div class="empty-state-icon">🌱</div>
+  <div class="empty-state-text">{{ 'No tasks today' if lang == 'en' else 'Няма задачи днес' }}</div>
+  <div class="empty-state-sub">{{ 'Check back tomorrow for new challenges!' if lang == 'en' else 'Върни се утре за нови предизвикателства!' }}</div>
+</div>
+{% endif %}
+
+<!-- Task Completion Modal -->
+<div id="task-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="step-indicator">
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+      </div>
+      <div class="modal-title" id="modal-task-title">Complete Task</div>
+      <div class="modal-subtitle">
+        <span id="modal-task-points" style="color:var(--green);font-weight:800;"></span>
+        &nbsp;{{ 'upon verification' if lang == 'en' else 'при потвърждение' }}
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Step 1: GPS -->
+      <div id="step-gps">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">
+          📍 {{ 'Step 1: Verify Location' if lang == 'en' else 'Стъпка 1: Провери местоположение' }}
+        </h3>
+        <div class="gps-status">
+          <span class="gps-icon" id="gps-status-icon">📍</span>
+          <div class="gps-text" id="gps-status-text">
+            <strong>{{ 'Checking your location…' if lang == 'en' else 'Проверяване на местоположение…' }}</strong>
+            <span>{{ 'Please allow location access' if lang == 'en' else 'Моля разрешете достъп до местоположение' }}</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+          {{ 'We check that you\'re in Burgas to verify your eco-action is local.' if lang == 'en' else 'Проверяваме, че сте в Бургас, за да потвърдим, че еко-действието е местно.' }}
+        </p>
+        <button class="btn btn-primary btn-full" id="gps-next-btn" onclick="gpsNext()" disabled>
+          {{ 'Continue →' if lang == 'en' else 'Продължи →' }}
+        </button>
+      </div>
+
+      <!-- Step 2: Photo Upload -->
+      <div id="step-photo" class="hidden">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">
+          📸 {{ 'Step 2: Upload Photo Proof' if lang == 'en' else 'Стъпка 2: Качи снимка' }}
+        </h3>
+
+        <!-- Preview -->
+        <div id="photo-preview" class="photo-preview hidden">
+          <img id="preview-img" src="" alt="Preview">
+          <div class="photo-preview-remove" onclick="removePhoto()">✕</div>
+        </div>
+
+        <!-- Upload area -->
+        <div id="upload-area" class="photo-upload-area">
+          <input type="file" id="photo-input" accept="image/*" capture="environment">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">{{ 'Take or Upload Photo' if lang == 'en' else 'Направи или Качи снимка' }}</div>
+          <div class="upload-hint">{{ 'JPG, PNG, WebP · Max 16MB' if lang == 'en' else 'JPG, PNG, WebP · До 16MB' }}</div>
+        </div>
+
+        <p style="font-size:13px;color:var(--text-muted);margin:12px 0 20px;">
+          {{ 'Our AI will verify your photo shows the eco-action. Be authentic!' if lang == 'en' else 'Нашият AI ще провери дали снимката показва еко-действието. Бъдете автентични!' }}
+        </p>
+        <button class="btn btn-primary btn-full" id="photo-submit-btn" onclick="submitTaskCompletion()" disabled>
+          🤖 {{ 'Submit for AI Verification' if lang == 'en' else 'Изпрати за AI верификация' }}
+        </button>
+      </div>
+
+      <!-- Step 3: Verifying -->
+      <div id="step-verifying" class="ai-verifying hidden">
+        <div class="spinner"></div>
+        <div class="verifying-text">{{ 'AI is reviewing your photo…' if lang == 'en' else 'AI преглежда снимката ти…' }}</div>
+        <div class="verifying-subtext">{{ 'This takes just a moment' if lang == 'en' else 'Това отнема само момент' }}</div>
+      </div>
+
+      <!-- Step 4: Result -->
+      <div id="step-result" class="result-screen hidden">
+        <div class="result-icon" id="result-icon">🎉</div>
+        <div class="result-title" id="result-title">Task Verified!</div>
+        <div class="result-subtitle" id="result-subtitle"></div>
+        <div class="result-points" id="result-points">
+          <span>⚡</span>
+          <span class="points-value">+0 pts</span>
+        </div>
+        <div class="new-badges hidden" id="new-badges"></div>
+        <button class="btn btn-primary btn-full mt-16" onclick="closeTaskResult()">
+          {{ 'Done!' if lang == 'en' else 'Готово!' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

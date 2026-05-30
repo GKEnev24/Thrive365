@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Map' if lang == 'en' else 'Карта' }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="map-container">
+  <div id="map"></div>
+
+  <!-- Layer controls -->
+  <div class="map-controls">
+    <button class="map-layer-btn active" id="btn-routes" onclick="toggleLayer('routes')">
+      🚶 {{ 'Routes' if lang == 'en' else 'Маршрути' }}
+    </button>
+    <button class="map-layer-btn active" id="btn-nature" onclick="toggleLayer('nature')">
+      🌳 {{ 'Nature' if lang == 'en' else 'Природа' }}
+    </button>
+    <button class="map-layer-btn active" id="btn-tasks" onclick="toggleLayer('tasks')">
+      📍 {{ 'Tasks' if lang == 'en' else 'Задачи' }}
+    </button>
+    <button class="map-layer-btn active" id="btn-heatmap" onclick="toggleLayer('heatmap')">
+      🔥 {{ 'Activity' if lang == 'en' else 'Активност' }}
+    </button>
+  </div>
+
+  <!-- Info panel (appears on marker click) -->
+  <div class="map-info-panel hidden" id="map-info-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div class="map-info-title" id="info-title">—</div>
+        <div class="map-info-location" id="info-location">—</div>
+        <div class="map-info-points hidden" id="info-points">—</div>
+      </div>
+      <button onclick="document.getElementById('map-info-panel').classList.add('hidden')"
+              style="font-size:18px;color:var(--text-muted);padding:4px 8px;">✕</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LANG = "{{ lang }}";
+
+// ── Map init ─────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [42.5048, 27.4626],
+  zoom: 13,
+  zoomControl: false,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+L.control.attribution({ position: 'bottomleft', prefix: '' }).addTo(map);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// ── Walking routes ───────────────────────────────────────────────────────────
+const walkingRoutes = [
+  // Sea Garden Promenade
+  [[42.4835,27.4808],[42.4862,27.4778],[42.4890,27.4757],[42.4920,27.4742],
+   [42.4947,27.4731],[42.4975,27.4720],[42.5005,27.4715],[42.5025,27.4712]],
+  // Ezeroto lakeside loop
+  [[42.5048,27.4580],[42.5065,27.4555],[42.5085,27.4565],[42.5098,27.4590],
+   [42.5095,27.4618],[42.5080,27.4638],[42.5062,27.4648],[42.5045,27.4640],
+   [42.5030,27.4620],[42.5028,27.4598],[42.5038,27.4578],[42.5048,27.4580]],
+  // City centre pedestrian zone
+  [[42.5055,27.4660],[42.5055,27.4640],[42.5048,27.4626],[42.5040,27.4610],
+   [42.5030,27.4600],[42.5020,27.4595]],
+  // Coastal boulevard north
+  [[42.5025,27.4712],[42.5050,27.4708],[42.5075,27.4702],[42.5100,27.4695]],
+];
+
+const routeLayer = L.layerGroup();
+walkingRoutes.forEach(coords => {
+  L.polyline(coords, {
+    color: '#1D9E75',
+    weight: 4,
+    opacity: 0.75,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(routeLayer);
+});
+
+// ── Nature spots ─────────────────────────────────────────────────────────────
+const natureSpots = [
+  { name: 'Приморски парк', name_en: 'Primorski Park (Sea Garden)', lat: 42.4947, lng: 27.4731, icon: '🌳' },
+  { name: 'Атанасовско езеро', name_en: 'Atanasovsko Ezero (Nature Reserve)', lat: 42.5576, lng: 27.5011, icon: '🦩' },
+  { name: 'Езерата', name_en: 'Ezerata (The Lakes)', lat: 42.5150, lng: 27.4700, icon: '🦆' },
+  { name: 'Морска градина', name_en: 'Sea Garden Beach', lat: 42.4880, lng: 27.4790, icon: '🌊' },
+];
+
+const natureIcon = L.divIcon({
+  html: '<div style="background:#2F855A;border:3px solid white;border-radius:50%;width:14px;height:14px;box-shadow:0 2px 8px rgba(0,0,0,0.25);"></div>',
+  className: '',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
+});
+
+const natureLayer = L.layerGroup();
+natureSpots.forEach(spot => {
+  const marker = L.marker([spot.lat, spot.lng], { icon: natureIcon }).addTo(natureLayer);
+  marker.on('click', () => showInfo(
+    spot.icon + ' ' + (LANG === 'en' ? spot.name_en : spot.name),
+    spot.name,
+    null
+  ));
+});
+
+// ── Task pins ────────────────────────────────────────────────────────────────
+const taskIcon = L.divIcon({
+  html: '<div style="background:#1D9E75;border:3px solid white;border-radius:50%;width:16px;height:16px;box-shadow:0 2px 10px rgba(29,158,117,0.5);"></div>',
+  className: '',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8]
+});
+
+const taskLayer = L.layerGroup();
+
+async function loadTaskPins() {
+  try {
+    const resp = await fetch('/api/map-data');
+    const data = await resp.json();
+
+    data.tasks.forEach(t => {
+      const marker = L.marker([t.lat, t.lng], { icon: taskIcon }).addTo(taskLayer);
+      marker.on('click', () => showInfo(t.title, '📍 ' + t.location, t.points));
+    });
+
+    if (data.heatmap && data.heatmap.length > 0) {
+      window.heatLayer = L.heatLayer(data.heatmap, {
+        radius: 28,
+        blur: 20,
+        maxZoom: 17,
+        gradient: { 0.2: '#a7f3d0', 0.5: '#1D9E75', 0.8: '#065f46' }
+      });
+      if (document.getElementById('btn-heatmap').classList.contains('active')) {
+        window.heatLayer.addTo(map);
+      }
+    }
+  } catch (e) {
+    console.error('Map data load error:', e);
+  }
+}
+
+// ── Info panel ───────────────────────────────────────────────────────────────
+function showInfo(title, location, points) {
+  document.getElementById('info-title').textContent = title;
+  document.getElementById('info-location').textContent = location;
+  const ptsEl = document.getElementById('info-points');
+  if (points !== null) {
+    ptsEl.textContent = `⚡ ${points} ${LANG === 'en' ? 'pts' : 'т.'}`;
+    ptsEl.classList.remove('hidden');
+  } else {
+    ptsEl.classList.add('hidden');
+  }
+  document.getElementById('map-info-panel').classList.remove('hidden');
+}
+
+// ── Layer toggles ────────────────────────────────────────────────────────────
+const layerMap = {
+  routes: routeLayer,
+  nature: natureLayer,
+  tasks: taskLayer,
+};
+const layerState = { routes: true, nature: true, tasks: true, heatmap: true };
+
+function toggleLayer(name) {
+  const btn = document.getElementById(`btn-${name}`);
+  layerState[name] = !layerState[name];
+  btn.classList.toggle('active', layerState[name]);
+
+  if (name === 'heatmap') {
+    if (window.heatLayer) {
+      layerState[name] ? window.heatLayer.addTo(map) : map.removeLayer(window.heatLayer);
+    }
+    return;
+  }
+
+  const layer = layerMap[name];
+  if (!layer) return;
+  layerState[name] ? layer.addTo(map) : map.removeLayer(layer);
+}
+
+// ── Add layers to map ────────────────────────────────────────────────────────
+routeLayer.addTo(map);
+natureLayer.addTo(map);
+taskLayer.addTo(map);
+loadTaskPins();
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip3 install *)",
+      "Bash(python3 -c \"from app import app; print\\('OK'\\)\")",
+      "Bash(python3 app.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/)",
+      "Bash(curl -s -L -o /dev/null -w \"%{http_code}\" http://localhost:5000/)",
+      "Bash(curl -s http://localhost:5000/)",
+      "Bash(curl -sv http://localhost:5000/)",
+      "Bash(pkill -f \"python3 app.py\")",
+      "Bash(python3 app.py --port 5001)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5001/)",
+      "Bash(curl -sb /tmp/cookies http://localhost:5001/api/map-data)",
+      "Bash(python3 -m json.tool)",
+      "Bash(mkdir -p /Users/valeritenev/Project/Thrive365/.claude)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(xargs kill -9)",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(git -C /Users/valeritenev/Project/Thrive365 status)",
+      "Bash(git -C /Users/valeritenev/Project/Thrive365 remote -v)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
