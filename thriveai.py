@@ -198,6 +198,20 @@ def _gemini_chat(system, history, message):
     return _gemini_request(payload)
 
 
+def _gemini_json(prompt, temperature=0.6, max_tokens=2000):
+    """Single-shot Gemini call that returns parsed JSON (forced JSON output)."""
+    payload = {
+        'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+        'generationConfig': {
+            'temperature': temperature,
+            'maxOutputTokens': max_tokens,
+            'responseMimeType': 'application/json',
+            'thinkingConfig': {'thinkingBudget': 0},
+        },
+    }
+    return json.loads(_gemini_request(payload))
+
+
 def _gemini_vision(prompt, image_b64, mime):
     payload = {
         'contents': [{
@@ -354,6 +368,63 @@ def chat(message, history=None, lang='en', context=None):
             print(f'[ThriveAI] Ollama chat failed, falling back: {e}')
 
     return {'reply': _heuristic_chat(message, lang, context), 'engine': 'heuristic'}
+
+
+# ── Public API: personalise selected tasks for a user ─────────────────────────
+
+def tailor_daily_tasks(profile, tasks, lang='en'):
+    """Personalise a list of already-selected curated tasks for one user.
+
+    `profile` is a small dict (neighborhood, transport, interests, ...).
+    `tasks` is a list of dicts each with title_en/title_bg/description_en/
+    description_bg/category. Returns a list of the same length/order with the
+    text personalised. ALWAYS safe: if no AI provider or anything goes wrong,
+    the original curated tasks are returned unchanged.
+    """
+    if not GEMINI_API_KEY or not tasks:
+        return tasks
+
+    compact = [{
+        'title_en': t['title_en'], 'title_bg': t['title_bg'],
+        'description_en': t['description_en'], 'description_bg': t['description_bg'],
+        'category': t.get('category', ''),
+    } for t in tasks]
+
+    prompt = f"""You personalise eco-task wording for Thrive365, a sustainability app in \
+Burgas, Bulgaria. Rewrite each task below so it feels tailored to THIS resident, while \
+keeping the SAME eco-action and difficulty.
+
+Resident profile (JSON): {json.dumps(profile, ensure_ascii=False)}
+
+Tasks to personalise (JSON array): {json.dumps(compact, ensure_ascii=False)}
+
+Rules for EACH task:
+- Keep the exact same real-world action and any location — do not invent a different task.
+- ALWAYS keep the photo-proof requirement (the user must photograph their action).
+- You may reference their neighborhood, transport or interests to make it motivating.
+- Keep titles short (max ~8 words). Keep descriptions 1-2 sentences.
+- Provide BOTH English and Bulgarian versions.
+
+Return ONLY a JSON array of the same length and order, each item:
+{{"title_en": "...", "title_bg": "...", "description_en": "...", "description_bg": "..."}}"""
+
+    try:
+        data = _gemini_json(prompt)
+        if not isinstance(data, list):
+            return tasks
+        out = []
+        for i, original in enumerate(tasks):
+            merged = dict(original)
+            item = data[i] if i < len(data) and isinstance(data[i], dict) else {}
+            for key in ('title_en', 'title_bg', 'description_en', 'description_bg'):
+                val = item.get(key)
+                if isinstance(val, str) and len(val.strip()) >= 8:
+                    merged[key] = val.strip()
+            out.append(merged)
+        return out
+    except Exception as e:  # noqa: BLE001 — never break task assignment
+        print(f'[ThriveAI] task tailoring failed, using curated text: {e}')
+        return tasks
 
 
 # ── Public API: image verification ────────────────────────────────────────────

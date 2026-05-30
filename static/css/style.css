@@ -1587,3 +1587,88 @@ textarea.form-input { min-height: 72px; resize: vertical; }
   position: sticky;
   bottom: 0;
 }
+
+/* ══ Auth pages (login / register) ═══════════════════════════════════════════ */
+.auth-page {
+  min-height: calc(100vh - var(--header-height));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 40px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 28px 22px;
+  text-align: center;
+}
+.auth-logo { font-size: 40px; margin-bottom: 8px; }
+.auth-title { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+.auth-sub { font-size: 13px; color: var(--text-secondary); margin: 6px 0 20px; }
+.auth-form { text-align: left; }
+.auth-form .form-group { margin-bottom: 14px; }
+.auth-form .btn { margin-top: 6px; }
+.auth-switch { font-size: 13px; color: var(--text-secondary); margin-top: 18px; }
+.auth-switch a { color: var(--green); font-weight: 700; }
+.auth-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0; color: var(--text-muted); font-size: 12px;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.auth-demo { margin-top: 16px; }
+.auth-demo a { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+
+/* ══ Onboarding ══════════════════════════════════════════════════════════════ */
+.onb { padding: 8px 16px 32px; }
+.onb-progress {
+  height: 6px; background: var(--border); border-radius: 99px;
+  overflow: hidden; margin: 8px 0 24px;
+}
+.onb-progress-fill {
+  height: 100%; width: 16%;
+  background: linear-gradient(90deg, var(--green), var(--green-dark));
+  border-radius: 99px; transition: width 0.35s ease;
+}
+.onb-step { animation: onb-fade 0.3s ease; }
+@keyframes onb-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+.onb-emoji { font-size: 44px; text-align: center; }
+.onb-q { font-size: 22px; font-weight: 900; text-align: center; letter-spacing: -0.5px; margin-top: 6px; }
+.onb-hint { font-size: 13px; color: var(--text-secondary); text-align: center; margin: 6px 0 18px; }
+.onb-subq { font-size: 14px; font-weight: 700; margin: 22px 0 10px; color: var(--text-secondary); }
+.onb-select { margin-top: 12px; }
+
+.onb-options { display: flex; flex-direction: column; gap: 10px; }
+.onb-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.onb-option { display: block; cursor: pointer; }
+.onb-option input { position: absolute; opacity: 0; pointer-events: none; }
+.onb-option-inner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--white);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.onb-options-grid .onb-option-inner { flex-direction: column; text-align: center; gap: 6px; padding: 16px 10px; }
+.onb-option:active .onb-option-inner { transform: scale(0.98); }
+.onb-option.selected .onb-option-inner {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+.onb-option-icon { font-size: 24px; }
+.onb-option-label { font-size: 14px; font-weight: 600; }
+
+.onb-nav { display: flex; gap: 10px; margin-top: 28px; }
+
+/* personalised banner on tasks page */
+.tasks-personalized-note {
+  font-size: 12px; font-weight: 700; color: var(--green-dark);
+  background: var(--green-light); border-radius: var(--radius-sm);
+  padding: 8px 12px; margin: 0 16px 12px; text-align: center;
+}

@@ -58,8 +58,8 @@
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Bottom navigation (authenticated only) -->
-  {% if current_user.is_authenticated %}
+  <!-- Bottom navigation (authenticated + onboarded only) -->
+  {% if current_user.is_authenticated and current_user.onboarded %}
   <nav class="bottom-nav">
     <a href="{{ url_for('tasks') }}" class="nav-item {% if request.endpoint == 'tasks' %}active{% endif %}">
       <span class="nav-icon">✅</span>
@@ -86,7 +86,7 @@
 
 </div><!-- /page-wrapper -->
 
-{% if current_user.is_authenticated and request.endpoint != 'thriveai_page' %}
+{% if current_user.is_authenticated and current_user.onboarded and request.endpoint != 'thriveai_page' %}
 <!-- ThriveAI floating chat widget -->
 <button class="thriveai-fab" id="thriveai-fab" onclick="ThriveAI.toggle()"
         title="{{ 'Ask ThriveAI' if lang == 'en' else 'Питай ThriveAI' }}"

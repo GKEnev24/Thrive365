@@ -12,6 +12,13 @@
   <p class="hero-tagline">Turn everyday actions into<br>a greener Burgas.</p>
 
   <div class="hero-buttons">
+    <a href="{{ url_for('register') }}" class="btn btn-primary btn-full">
+      {{ '🌱 Create Account' if lang == 'en' else '🌱 Създай профил' }}
+    </a>
+    <a href="{{ url_for('login') }}" class="btn btn-outline btn-full">
+      {{ 'Log In' if lang == 'en' else 'Влез' }}
+    </a>
+
     {% if google_enabled %}
     <a href="{{ url_for('login_google') }}" class="btn-google">
       <svg class="google-icon" viewBox="0 0 48 48">
@@ -23,6 +30,7 @@
       {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
     </a>
     {% endif %}
+
     <a href="{{ url_for('login_demo') }}" class="btn-demo">
       {{ '✨ Try Demo' if lang == 'en' else '✨ Пробвай демо' }}
     </a>

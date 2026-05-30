@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Set Up Your Profile' if lang == 'en' else 'Настрой профила си' }}{% endblock %}
+
+{% macro choice(field, opt, multi=False) %}
+<label class="onb-option">
+  <input type="{{ 'checkbox' if multi else 'radio' }}" name="{{ field }}" value="{{ opt.value }}" {{ 'data-multi' if multi else '' }}>
+  <span class="onb-option-inner">
+    <span class="onb-option-icon">{{ opt.icon }}</span>
+    <span class="onb-option-label">{{ opt.en if lang == 'en' else opt.bg }}</span>
+  </span>
+</label>
+{% endmacro %}
+
+{% block content %}
+<div class="onb">
+  <div class="onb-progress"><div class="onb-progress-fill" id="onb-progress-fill"></div></div>
+
+  <form method="POST" action="{{ url_for('onboarding') }}" id="onb-form">
+
+    <!-- Step 1: Neighborhood -->
+    <section class="onb-step" data-step="0">
+      <div class="onb-emoji">📍</div>
+      <h2 class="onb-q">{{ 'Where in Burgas do you live?' if lang == 'en' else 'Къде в Бургас живееш?' }}</h2>
+      <p class="onb-hint">{{ 'So we can suggest tasks near you.' if lang == 'en' else 'За да предлагаме задачи близо до теб.' }}</p>
+      <select name="neighborhood" class="form-input onb-select">
+        <option value="">{{ 'Select your neighborhood…' if lang == 'en' else 'Избери квартал…' }}</option>
+        {% for n in neighborhoods %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+      </select>
+    </section>
+
+    <!-- Step 2: Transport -->
+    <section class="onb-step hidden" data-step="1">
+      <div class="onb-emoji">🚦</div>
+      <h2 class="onb-q">{{ 'How do you usually get around?' if lang == 'en' else 'Как обикновено се придвижваш?' }}</h2>
+      <div class="onb-options">{% for opt in options.transport %}{{ choice('transport', opt) }}{% endfor %}</div>
+    </section>
+
+    <!-- Step 3: Home -->
+    <section class="onb-step hidden" data-step="2">
+      <div class="onb-emoji">🏠</div>
+      <h2 class="onb-q">{{ 'What is your home like?' if lang == 'en' else 'Какъв е домът ти?' }}</h2>
+      <div class="onb-options">{% for opt in options.home_type %}{{ choice('home_type', opt) }}{% endfor %}</div>
+      <h3 class="onb-subq">{{ 'Outdoor space?' if lang == 'en' else 'Външно пространство?' }}</h3>
+      <div class="onb-options">{% for opt in options.garden_access %}{{ choice('garden_access', opt) }}{% endfor %}</div>
+    </section>
+
+    <!-- Step 4: Interests -->
+    <section class="onb-step hidden" data-step="3">
+      <div class="onb-emoji">💚</div>
+      <h2 class="onb-q">{{ 'What do you care about most?' if lang == 'en' else 'Какво те вълнува най-много?' }}</h2>
+      <p class="onb-hint">{{ 'Pick all that apply.' if lang == 'en' else 'Избери всичко, което важи.' }}</p>
+      <div class="onb-options onb-options-grid">{% for opt in options.interests %}{{ choice('interests', opt, multi=True) }}{% endfor %}</div>
+    </section>
+
+    <!-- Step 5: Commitment + household -->
+    <section class="onb-step hidden" data-step="4">
+      <div class="onb-emoji">⏳</div>
+      <h2 class="onb-q">{{ 'How much can you take on?' if lang == 'en' else 'Колко можеш да поемеш?' }}</h2>
+      <div class="onb-options">{% for opt in options.time_commitment %}{{ choice('time_commitment', opt) }}{% endfor %}</div>
+      <h3 class="onb-subq">{{ 'Activity level?' if lang == 'en' else 'Ниво на активност?' }}</h3>
+      <div class="onb-options">{% for opt in options.activity_level %}{{ choice('activity_level', opt) }}{% endfor %}</div>
+    </section>
+
+    <!-- Step 6: About you -->
+    <section class="onb-step hidden" data-step="5">
+      <div class="onb-emoji">🧑</div>
+      <h2 class="onb-q">{{ 'A little about you' if lang == 'en' else 'Малко за теб' }}</h2>
+      <h3 class="onb-subq">{{ 'Age group' if lang == 'en' else 'Възрастова група' }}</h3>
+      <div class="onb-options">{% for opt in options.age_range %}{{ choice('age_range', opt) }}{% endfor %}</div>
+      <h3 class="onb-subq">{{ 'Household size' if lang == 'en' else 'Брой в домакинството' }}</h3>
+      <input type="number" name="household_size" class="form-input" value="1" min="1" max="20" style="max-width:120px;">
+    </section>
+
+    <!-- Nav -->
+    <div class="onb-nav">
+      <button type="button" class="btn btn-outline" id="onb-back" style="display:none;">
+        {{ '← Back' if lang == 'en' else '← Назад' }}
+      </button>
+      <button type="button" class="btn btn-primary" id="onb-next" style="flex:1;">
+        {{ 'Next →' if lang == 'en' else 'Напред →' }}
+      </button>
+      <button type="submit" class="btn btn-primary" id="onb-finish" style="flex:1;display:none;">
+        {{ '🌱 Get My Tasks' if lang == 'en' else '🌱 Дай ми задачи' }}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const steps = Array.from(document.querySelectorAll('.onb-step'));
+  const fill = document.getElementById('onb-progress-fill');
+  const backBtn = document.getElementById('onb-back');
+  const nextBtn = document.getElementById('onb-next');
+  const finishBtn = document.getElementById('onb-finish');
+  let i = 0;
+
+  function render() {
+    steps.forEach((s, idx) => s.classList.toggle('hidden', idx !== i));
+    fill.style.width = ((i + 1) / steps.length * 100) + '%';
+    backBtn.style.display = i === 0 ? 'none' : 'inline-flex';
+    const last = i === steps.length - 1;
+    nextBtn.style.display = last ? 'none' : 'inline-flex';
+    finishBtn.style.display = last ? 'inline-flex' : 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  nextBtn.addEventListener('click', () => { if (i < steps.length - 1) { i++; render(); } });
+  backBtn.addEventListener('click', () => { if (i > 0) { i--; render(); } });
+
+  // visual selected state for radio/checkbox cards
+  document.querySelectorAll('.onb-option input').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.type === 'radio') {
+        document.querySelectorAll(`.onb-option input[name="${input.name}"]`)
+          .forEach(r => r.closest('.onb-option').classList.toggle('selected', r.checked));
+      } else {
+        input.closest('.onb-option').classList.toggle('selected', input.checked);
+      }
+    });
+  });
+  render();
+})();
+</script>
+{% endblock %}

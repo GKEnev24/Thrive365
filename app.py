@@ -1,5 +1,6 @@
 import os
 import uuid
+import random
 from datetime import datetime, date, timedelta
 from functools import wraps
 
@@ -11,8 +12,9 @@ from flask import (Flask, render_template, redirect, url_for, session,
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from authlib.integrations.flask_client import OAuth
 from werkzeug.utils import secure_filename
+from sqlalchemy.exc import IntegrityError
 
-from models import db, User, Task, TaskCompletion, Prize, Redemption, Badge, UserBadge
+from models import db, User, TaskTemplate, AssignedTask, Prize, Redemption, Badge, UserBadge
 from database import seed_db
 import thriveai
 
@@ -27,7 +29,7 @@ db.init_app(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'index'
+login_manager.login_view = 'login'
 
 oauth = OAuth(app)
 
@@ -46,6 +48,60 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     )
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+TASKS_PER_DAY = 5
+
+# ── Onboarding option catalogue (value + bilingual label + icon) ──────────────
+NEIGHBORHOODS = ['Център', 'Лазур', 'Възраждане', 'Братя Миладинови', 'Славейков',
+                 'Изгрев', 'Зорница', 'Меден рудник', 'Сарафово', 'Крайморие',
+                 'Победа', 'Долно Езерово', 'Горно Езерово', 'Акациите', 'Банево',
+                 'Ветрен', 'Друг / Other']
+
+ONBOARD_OPTIONS = {
+    'transport': [
+        {'value': 'car', 'en': 'Mostly car', 'bg': 'Предимно кола', 'icon': '🚗'},
+        {'value': 'bike', 'en': 'Bicycle', 'bg': 'Колело', 'icon': '🚲'},
+        {'value': 'walk', 'en': 'On foot', 'bg': 'Пеша', 'icon': '🚶'},
+        {'value': 'transit', 'en': 'Public transport', 'bg': 'Градски транспорт', 'icon': '🚌'},
+        {'value': 'mixed', 'en': 'A mix', 'bg': 'Смесено', 'icon': '🔀'},
+    ],
+    'home_type': [
+        {'value': 'apartment', 'en': 'Apartment', 'bg': 'Апартамент', 'icon': '🏢'},
+        {'value': 'house', 'en': 'House', 'bg': 'Къща', 'icon': '🏡'},
+    ],
+    'garden_access': [
+        {'value': 'none', 'en': 'No outdoor space', 'bg': 'Без външно пространство', 'icon': '🚪'},
+        {'value': 'balcony', 'en': 'Balcony', 'bg': 'Балкон', 'icon': '🪴'},
+        {'value': 'yard', 'en': 'Small yard', 'bg': 'Малък двор', 'icon': '🌿'},
+        {'value': 'garden', 'en': 'Garden', 'bg': 'Градина', 'icon': '🌳'},
+    ],
+    'interests': [
+        {'value': 'recycling', 'en': 'Recycling', 'bg': 'Рециклиране', 'icon': '♻️'},
+        {'value': 'nature', 'en': 'Nature & planting', 'bg': 'Природа и засаждане', 'icon': '🌱'},
+        {'value': 'cycling', 'en': 'Cycling & transport', 'bg': 'Колоездене и транспорт', 'icon': '🚲'},
+        {'value': 'energy', 'en': 'Saving energy', 'bg': 'Пестене на енергия', 'icon': '💡'},
+        {'value': 'water', 'en': 'Saving water', 'bg': 'Пестене на вода', 'icon': '💧'},
+        {'value': 'community', 'en': 'Community action', 'bg': 'Общностни действия', 'icon': '🤝'},
+        {'value': 'food', 'en': 'Sustainable food', 'bg': 'Устойчива храна', 'icon': '🥗'},
+        {'value': 'waste', 'en': 'Litter & cleanups', 'bg': 'Боклук и почистване', 'icon': '🧹'},
+    ],
+    'time_commitment': [
+        {'value': 'low', 'en': 'A few minutes', 'bg': 'Няколко минути', 'icon': '⏱️'},
+        {'value': 'medium', 'en': '15–30 min/day', 'bg': '15–30 мин/ден', 'icon': '⏳'},
+        {'value': 'high', 'en': 'I want a challenge', 'bg': 'Искам предизвикателство', 'icon': '🔥'},
+    ],
+    'activity_level': [
+        {'value': 'low', 'en': 'Light & easy', 'bg': 'Леко и спокойно', 'icon': '🍃'},
+        {'value': 'medium', 'en': 'Moderate', 'bg': 'Умерено', 'icon': '🚶'},
+        {'value': 'high', 'en': 'Very active', 'bg': 'Много активно', 'icon': '🏃'},
+    ],
+    'age_range': [
+        {'value': 'teen', 'en': 'Under 18', 'bg': 'Под 18', 'icon': '🧒'},
+        {'value': 'adult', 'en': '18–60', 'bg': '18–60', 'icon': '🧑'},
+        {'value': 'senior', 'en': '60+', 'bg': '60+', 'icon': '🧓'},
+    ],
+}
+
+_VALID = {k: {o['value'] for o in v} for k, v in ONBOARD_OPTIONS.items()}
 
 
 def allowed_file(filename):
@@ -54,7 +110,10 @@ def allowed_file(filename):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    try:
+        return db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
 
 
 def get_lang():
@@ -75,13 +134,9 @@ def inject_globals():
 
 @app.template_filter('fdate')
 def fdate(value, fmt='%d %b %Y'):
-    """Cross-platform date/datetime formatting for templates.
-
-    glibc no-padding tokens (%-d, %-m, %-H, ...) are NOT supported on Windows
-    and raise `ValueError: Invalid format string`. We substitute them manually
-    so the same templates render on every OS. Only touches the time attributes
-    actually requested, so it works for both `date` and `datetime` values.
-    """
+    """Cross-platform date/datetime formatting. glibc no-pad tokens (%-d, %-m,
+    %-H ...) crash on Windows, so substitute them manually. Works for date and
+    datetime; only touches the time attributes actually requested."""
     if value is None:
         return ''
     substitutions = {
@@ -97,6 +152,21 @@ def fdate(value, fmt='%d %b %Y'):
             fmt = fmt.replace(token, resolver())
     return value.strftime(fmt)
 
+
+@app.before_request
+def enforce_onboarding():
+    """Authenticated users must finish onboarding before using the app."""
+    if not current_user.is_authenticated or current_user.onboarded:
+        return
+    allowed = {'onboarding', 'logout', 'switch_language', 'static',
+               'login', 'register', 'login_google', 'google_callback',
+               'login_demo', 'index'}
+    if request.endpoint in allowed:
+        return
+    return redirect(url_for('onboarding'))
+
+
+# ─── Gamification helpers ───────────────────────────────────────────────────────
 
 def update_streak(user):
     today = date.today()
@@ -114,29 +184,129 @@ def update_streak(user):
 def check_and_award_badges(user):
     new_badges = []
     earned_ids = {ub.badge_id for ub in UserBadge.query.filter_by(user_id=user.id).all()}
-    completed_count = TaskCompletion.query.filter_by(user_id=user.id, verified=True).count()
+    completed_count = AssignedTask.query.filter_by(user_id=user.id, verified=True).count()
 
     for badge in Badge.query.all():
         if badge.id in earned_ids:
             continue
-        earned = False
-        if badge.condition_type == 'points' and user.points >= badge.condition_value:
-            earned = True
-        elif badge.condition_type == 'streak' and user.streak >= badge.condition_value:
-            earned = True
-        elif badge.condition_type == 'tasks' and completed_count >= badge.condition_value:
-            earned = True
-
+        earned = (
+            (badge.condition_type == 'points' and user.points >= badge.condition_value) or
+            (badge.condition_type == 'streak' and user.streak >= badge.condition_value) or
+            (badge.condition_type == 'tasks' and completed_count >= badge.condition_value)
+        )
         if earned:
             db.session.add(UserBadge(user_id=user.id, badge_id=badge.id))
             new_badges.append(badge)
-
     return new_badges
 
 
-def verify_task_with_ai(task, photo_path):
-    """Verify a task photo via ThriveAI (Gemini → local Ollama → heuristic)."""
-    return thriveai.verify_image(task, photo_path, lang=get_lang())
+# ─── Personalised task assignment ───────────────────────────────────────────────
+
+_EFFORT_RANK = {'low': 1, 'medium': 2, 'high': 3}
+
+
+def _template_eligible(user, t):
+    """Hard requirements: drop tasks the user physically cannot do."""
+    tags = set(t.tag_list)
+    garden = user.garden_access or 'none'
+    if 'needs_garden' in tags and garden not in ('yard', 'garden'):
+        return False
+    if 'needs_outdoor_space' in tags and garden == 'none':
+        return False
+    return True
+
+
+def _score_template(user, t):
+    """Higher = better fit for this user's profile."""
+    score = 0.0
+    interests = set(user.interest_list)
+    if t.category in interests:
+        score += 4
+    if t.neighborhood and user.neighborhood and t.neighborhood == user.neighborhood:
+        score += 3
+    if not t.neighborhood:
+        score += 1  # city-wide tasks are always doable
+    if t.category == 'transport' and (user.transport or '') == 'car':
+        score += 3  # biggest impact: nudge a driver toward greener transport
+    if t.category == 'cycling' and (user.transport or '') in ('bike', 'mixed'):
+        score += 1.5
+    # effort vs available time
+    if _EFFORT_RANK.get(t.effort, 2) <= _EFFORT_RANK.get(user.time_commitment or 'medium', 2):
+        score += 1.5
+    else:
+        score -= 1.0
+    if t.effort == 'high' and (user.activity_level or 'medium') == 'low':
+        score -= 1.5
+    return score
+
+
+def _pick_diverse(templates, count):
+    """Take the best, but cap each category at 2 for variety."""
+    chosen, cat_count = [], {}
+    for t in templates:
+        if cat_count.get(t.category, 0) >= 2:
+            continue
+        chosen.append(t)
+        cat_count[t.category] = cat_count.get(t.category, 0) + 1
+        if len(chosen) >= count:
+            return chosen
+    for t in templates:  # backfill if diversity cap left us short
+        if t not in chosen:
+            chosen.append(t)
+            if len(chosen) >= count:
+                break
+    return chosen[:count]
+
+
+def _profile_dict(user):
+    return {
+        'neighborhood': user.neighborhood,
+        'transport': user.transport,
+        'home_type': user.home_type,
+        'garden_access': user.garden_access,
+        'interests': user.interest_list,
+        'time_commitment': user.time_commitment,
+    }
+
+
+def generate_daily_tasks(user, target_date=None, count=TASKS_PER_DAY):
+    """Return the user's tasks for the day, creating them from the curated
+    library (profile-filtered, scored, diversified, AI-tailored) if needed."""
+    target_date = target_date or date.today()
+    existing = (AssignedTask.query
+                .filter_by(user_id=user.id, date=target_date)
+                .order_by(AssignedTask.id).all())
+    if existing:
+        return existing
+
+    templates = TaskTemplate.query.filter_by(active=True).all()
+    eligible = [t for t in templates if _template_eligible(user, t)] or templates
+    rng = random.Random(f"{user.id}-{target_date.isoformat()}")
+    ranked = sorted(eligible, key=lambda t: (_score_template(user, t), rng.random()), reverse=True)
+    chosen = _pick_diverse(ranked, count)
+
+    base = [{
+        'title_en': t.title_en, 'title_bg': t.title_bg,
+        'description_en': t.description_en, 'description_bg': t.description_bg,
+        'category': t.category,
+    } for t in chosen]
+
+    tailored = thriveai.tailor_daily_tasks(_profile_dict(user), base,
+                                           lang=user.language_preference or 'en')
+
+    rows = []
+    for template, text in zip(chosen, tailored):
+        at = AssignedTask(
+            user_id=user.id, template_id=template.id, date=target_date,
+            title_en=text['title_en'], title_bg=text['title_bg'],
+            description_en=text['description_en'], description_bg=text['description_bg'],
+            points=template.points, category=template.category,
+            location_name=template.location_name, lat=template.lat, lng=template.lng,
+        )
+        db.session.add(at)
+        rows.append(at)
+    db.session.commit()
+    return rows
 
 
 # ─── Auth routes ──────────────────────────────────────────────────────────────
@@ -148,11 +318,73 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('tasks'))
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        confirm = request.form.get('confirm') or ''
+
+        errors = []
+        if len(name) < 2:
+            errors.append('Please enter your name.')
+        if '@' not in email or '.' not in email.split('@')[-1]:
+            errors.append('Please enter a valid email address.')
+        if len(password) < 6:
+            errors.append('Password must be at least 6 characters.')
+        if password != confirm:
+            errors.append('Passwords do not match.')
+        if User.query.filter_by(email=email).first():
+            errors.append('An account with this email already exists.')
+
+        if errors:
+            for e in errors:
+                flash(e, 'error')
+            return render_template('register.html', name=name, email=email)
+
+        user = User(name=name, email=email, points=0, streak=0,
+                    language_preference=get_lang())
+        user.set_password(password)
+        db.session.add(user)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash('An account with this email already exists.', 'error')
+            return render_template('register.html', name=name, email=email)
+
+        login_user(user, remember=True)
+        return redirect(url_for('onboarding'))
+
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('tasks'))
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            if not user.onboarded:
+                return redirect(url_for('onboarding'))
+            return redirect(url_for('tasks'))
+        flash('Incorrect email or password.', 'error')
+        return render_template('login.html', email=email)
+    return render_template('login.html')
+
+
 @app.route('/login/google')
 def login_google():
     if not google:
-        flash('Google login is not configured. Use Demo Login instead.', 'warning')
-        return redirect(url_for('index'))
+        flash('Google login is not configured. Use email or Demo Login instead.', 'warning')
+        return redirect(url_for('login'))
     redirect_uri = url_for('google_callback', _external=True)
     return google.authorize_redirect(redirect_uri)
 
@@ -160,7 +392,7 @@ def login_google():
 @app.route('/auth/google/callback')
 def google_callback():
     if not google:
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
     try:
         token = google.authorize_access_token()
         userinfo = token.get('userinfo') or google.userinfo()
@@ -182,11 +414,13 @@ def google_callback():
             user.avatar = userinfo.get('picture', user.avatar)
         db.session.commit()
         login_user(user, remember=True)
+        if not user.onboarded:
+            return redirect(url_for('onboarding'))
         return redirect(url_for('tasks'))
     except Exception as e:
         print(f"OAuth error: {e}")
         flash('Login failed. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
 
 
 @app.route('/login/demo')
@@ -194,20 +428,25 @@ def login_demo():
     demo_email = 'demo@thrive365.bg'
     user = User.query.filter_by(email=demo_email).first()
     if not user:
-        user = User(
-            name='Иван Демов',
-            email=demo_email,
-            avatar='',
-            points=325,
-            streak=3,
-            last_active_date=date.today() - timedelta(days=1),
-            language_preference='en'
-        )
+        user = User(name='Иван Демов', email=demo_email, avatar='',
+                    points=325, streak=3,
+                    last_active_date=date.today() - timedelta(days=1),
+                    language_preference='en')
         db.session.add(user)
-        db.session.flush()
-        for badge_id in [1, 2]:
-            db.session.add(UserBadge(user_id=user.id, badge_id=badge_id))
-        db.session.commit()
+    # ensure the demo account is fully onboarded with a sample profile
+    if not user.onboarded:
+        user.onboarded = True
+        user.neighborhood = 'Лазур'
+        user.transport = 'car'
+        user.home_type = 'apartment'
+        user.garden_access = 'balcony'
+        user.household_size = 2
+        user.interests = 'recycling,nature,cycling,community'
+        user.time_commitment = 'medium'
+        user.activity_level = 'medium'
+        user.age_range = 'adult'
+    db.session.commit()
+    generate_daily_tasks(user)
     login_user(user, remember=True)
     return redirect(url_for('tasks'))
 
@@ -232,34 +471,62 @@ def switch_language():
     return redirect(request.form.get('next', url_for('index')))
 
 
+# ─── Onboarding ─────────────────────────────────────────────────────────────────
+
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding():
+    if request.method == 'POST':
+        def pick(field):
+            val = (request.form.get(field) or '').strip()
+            return val if val in _VALID.get(field, set()) else None
+
+        current_user.neighborhood = (request.form.get('neighborhood') or '').strip() or None
+        current_user.transport = pick('transport')
+        current_user.home_type = pick('home_type')
+        current_user.garden_access = pick('garden_access')
+        current_user.time_commitment = pick('time_commitment')
+        current_user.activity_level = pick('activity_level')
+        current_user.age_range = pick('age_range')
+
+        try:
+            current_user.household_size = max(1, min(20, int(request.form.get('household_size', 1))))
+        except (TypeError, ValueError):
+            current_user.household_size = 1
+
+        interests = [i for i in request.form.getlist('interests') if i in _VALID['interests']]
+        current_user.interests = ','.join(interests)
+
+        current_user.onboarded = True
+        db.session.commit()
+
+        # build the first set of personalised tasks immediately
+        generate_daily_tasks(current_user)
+        flash('Your profile is set! Here are your personalised eco-tasks. 🌱', 'success')
+        return redirect(url_for('tasks'))
+
+    return render_template('onboarding.html', neighborhoods=NEIGHBORHOODS,
+                           options=ONBOARD_OPTIONS)
+
+
 # ─── Main app routes ───────────────────────────────────────────────────────────
 
 @app.route('/tasks')
 @login_required
 def tasks():
-    today = date.today()
-    today_tasks = Task.query.filter_by(date=today).order_by(Task.id).all()
-    completed_ids = {
-        tc.task_id for tc in TaskCompletion.query
-        .filter_by(user_id=current_user.id, verified=True).all()
-        if tc.task and tc.task.date == today
-    }
-    return render_template('tasks.html', tasks=today_tasks, completed_ids=completed_ids)
+    today_tasks = generate_daily_tasks(current_user)
+    return render_template('tasks.html', tasks=today_tasks)
 
 
 @app.route('/tasks/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
-    task = db.session.get(Task, task_id)
-    if not task:
+    at = db.session.get(AssignedTask, task_id)
+    if not at or at.user_id != current_user.id:
         return jsonify({'success': False, 'message': 'Task not found.'})
-    if task.date != date.today():
+    if at.date != date.today():
         return jsonify({'success': False, 'message': 'This task is not available today.'})
-
-    already_done = TaskCompletion.query.filter_by(
-        user_id=current_user.id, task_id=task_id, verified=True
-    ).first()
-    if already_done:
+    if at.verified:
         return jsonify({'success': False, 'message': 'You have already completed this task!'})
 
     if 'photo' not in request.files or request.files['photo'].filename == '':
@@ -275,26 +542,20 @@ def complete_task(task_id):
     photo_path = os.path.join(upload_folder, filename)
     file.save(photo_path)
 
-    verified, feedback = verify_task_with_ai(task, photo_path)
-
-    completion = TaskCompletion(
-        user_id=current_user.id,
-        task_id=task_id,
-        photo_path=f"uploads/{filename}",
-        verified=verified,
-        ai_feedback=feedback
-    )
-    db.session.add(completion)
+    verified, feedback = thriveai.verify_image(at, photo_path, lang=get_lang())
+    at.ai_feedback = feedback
 
     if verified:
-        current_user.points += task.points
+        at.verified = True
+        at.photo_path = f"uploads/{filename}"
+        at.completed_at = datetime.utcnow()
+        current_user.points += at.points
         update_streak(current_user)
         new_badges = check_and_award_badges(current_user)
         db.session.commit()
         return jsonify({
-            'success': True,
-            'verified': True,
-            'points_awarded': task.points,
+            'success': True, 'verified': True,
+            'points_awarded': at.points,
             'total_points': current_user.points,
             'streak': current_user.streak,
             'feedback': feedback,
@@ -303,7 +564,6 @@ def complete_task(task_id):
     else:
         try:
             os.remove(photo_path)
-            completion.photo_path = None
         except OSError:
             pass
         db.session.commit()
@@ -313,24 +573,21 @@ def complete_task(task_id):
 @app.route('/map')
 @login_required
 def map_page():
-    tasks = Task.query.filter_by(date=date.today()).all()
-    return render_template('map.html', tasks=tasks)
+    return render_template('map.html')
 
 
 @app.route('/api/map-data')
 @login_required
 def map_data():
-    import random
     today = date.today()
-    tasks = Task.query.filter_by(date=today).all()
-    completions = TaskCompletion.query.filter_by(verified=True).join(Task).all()
+    my_tasks = AssignedTask.query.filter_by(user_id=current_user.id, date=today).all()
 
     heatmap = []
-    for c in completions:
-        if c.task:
-            heatmap.append([c.task.lat, c.task.lng, 0.6])
+    for c in AssignedTask.query.filter_by(verified=True).all():
+        if c.lat is not None and c.lng is not None:
+            heatmap.append([c.lat, c.lng, 0.6])
 
-    random.seed(99)
+    rng = random.Random(99)
     activity_centers = [
         (42.4947, 27.4731), (42.5048, 27.4580), (42.5048, 27.4626),
         (42.5150, 27.4700), (42.5576, 27.5011)
@@ -338,20 +595,20 @@ def map_data():
     for lat, lng in activity_centers:
         for _ in range(12):
             heatmap.append([
-                lat + random.uniform(-0.012, 0.012),
-                lng + random.uniform(-0.012, 0.012),
-                round(random.uniform(0.2, 1.0), 2)
+                lat + rng.uniform(-0.012, 0.012),
+                lng + rng.uniform(-0.012, 0.012),
+                round(rng.uniform(0.2, 1.0), 2)
             ])
 
     lang = get_lang()
     task_data = [{
         'id': t.id,
-        'title': t.title_en if lang == 'en' else t.title_bg,
-        'lat': t.lat,
-        'lng': t.lng,
+        'title': t.title(lang),
+        'lat': t.lat, 'lng': t.lng,
         'points': t.points,
-        'location': t.location_name
-    } for t in tasks]
+        'location': t.location_name or 'Burgas',
+        'done': t.verified,
+    } for t in my_tasks if t.lat is not None and t.lng is not None]
 
     return jsonify({'tasks': task_data, 'heatmap': heatmap})
 
@@ -369,18 +626,14 @@ def leaderboard():
 def profile():
     all_badges = Badge.query.all()
     earned_ids = {ub.badge_id for ub in UserBadge.query.filter_by(user_id=current_user.id).all()}
-    completions = (TaskCompletion.query
+    completions = (AssignedTask.query
                    .filter_by(user_id=current_user.id, verified=True)
-                   .order_by(TaskCompletion.completed_at.desc())
+                   .order_by(AssignedTask.completed_at.desc())
                    .limit(10).all())
     user_rank = User.query.filter(User.points > current_user.points).count() + 1
-    tasks_count = TaskCompletion.query.filter_by(user_id=current_user.id, verified=True).count()
-    return render_template('profile.html',
-                           all_badges=all_badges,
-                           earned_ids=earned_ids,
-                           completions=completions,
-                           user_rank=user_rank,
-                           tasks_count=tasks_count)
+    tasks_count = AssignedTask.query.filter_by(user_id=current_user.id, verified=True).count()
+    return render_template('profile.html', all_badges=all_badges, earned_ids=earned_ids,
+                           completions=completions, user_rank=user_rank, tasks_count=tasks_count)
 
 
 @app.route('/shop')
@@ -411,8 +664,7 @@ def redeem_prize(prize_id):
 
     lang = get_lang()
     return jsonify({
-        'success': True,
-        'code': code,
+        'success': True, 'code': code,
         'prize_title': prize.title_en if lang == 'en' else prize.title_bg,
         'remaining_points': current_user.points
     })
@@ -421,24 +673,16 @@ def redeem_prize(prize_id):
 # ─── ThriveAI assistant routes ─────────────────────────────────────────────────
 
 def build_thriveai_context():
-    """Snapshot of the current user's live state, fed to ThriveAI for grounded answers."""
     user = current_user
     today = date.today()
     lang = get_lang()
 
-    completed_ids = {
-        tc.task_id for tc in TaskCompletion.query
-        .filter_by(user_id=user.id, verified=True).all()
-        if tc.task and tc.task.date == today
-    }
-    today_tasks = []
-    for t in Task.query.filter_by(date=today).order_by(Task.id).all():
-        today_tasks.append({
-            'title': t.title_en if lang == 'en' else t.title_bg,
-            'points': t.points,
-            'location': t.location_name,
-            'done': t.id in completed_ids,
-        })
+    today_tasks = [{
+        'title': at.title(lang),
+        'points': at.points,
+        'location': at.location_name or 'Burgas',
+        'done': at.verified,
+    } for at in AssignedTask.query.filter_by(user_id=user.id, date=today).order_by(AssignedTask.id).all()]
 
     earned_ids = {ub.badge_id for ub in UserBadge.query.filter_by(user_id=user.id).all()}
     earned_badges = [b.name for b in Badge.query.all() if b.id in earned_ids]
@@ -486,16 +730,12 @@ def thriveai_chat():
         if isinstance(h, dict) and h.get('role') in ('user', 'assistant')
     ]
 
-    result = thriveai.chat(
-        message,
-        history=clean_history,
-        lang=get_lang(),
-        context=build_thriveai_context(),
-    )
+    result = thriveai.chat(message, history=clean_history, lang=get_lang(),
+                           context=build_thriveai_context())
     return jsonify({'success': True, 'reply': result['reply'], 'engine': result['engine']})
 
 
-# ─── Admin routes ──────────────────────────────────────────────────────────────
+# ─── Admin routes (manage the curated task library) ─────────────────────────────
 
 def admin_required(f):
     @wraps(f)
@@ -519,68 +759,58 @@ def admin():
         return render_template('admin.html', authenticated=False)
 
     users = User.query.order_by(User.points.desc()).all()
-    tasks = Task.query.order_by(Task.date.desc(), Task.id).all()
-    completions = (TaskCompletion.query
-                   .order_by(TaskCompletion.completed_at.desc())
-                   .limit(50).all())
-    return render_template('admin.html', authenticated=True,
-                           users=users, tasks=tasks, completions=completions)
+    templates = TaskTemplate.query.order_by(TaskTemplate.category, TaskTemplate.id).all()
+    completions = (AssignedTask.query.filter_by(verified=True)
+                   .order_by(AssignedTask.completed_at.desc()).limit(50).all())
+    return render_template('admin.html', authenticated=True, users=users,
+                           templates=templates, completions=completions)
 
 
-@app.route('/admin/task/add', methods=['POST'])
+@app.route('/admin/template/add', methods=['POST'])
 @admin_required
-def admin_add_task():
+def admin_add_template():
     try:
-        db.session.add(Task(
+        db.session.add(TaskTemplate(
             title_en=request.form['title_en'],
             title_bg=request.form['title_bg'],
             description_en=request.form['description_en'],
             description_bg=request.form['description_bg'],
             points=int(request.form['points']),
-            location_name=request.form['location_name'],
-            lat=float(request.form['lat']),
-            lng=float(request.form['lng']),
-            date=datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+            category=request.form.get('category', 'nature'),
+            effort=request.form.get('effort', 'medium'),
+            tags=request.form.get('tags', '').strip(),
+            neighborhood=(request.form.get('neighborhood') or '').strip() or None,
+            location_name=(request.form.get('location_name') or '').strip() or None,
+            lat=float(request.form['lat']) if request.form.get('lat') else None,
+            lng=float(request.form['lng']) if request.form.get('lng') else None,
+            active=True,
         ))
         db.session.commit()
-        flash('Task added successfully!', 'success')
+        flash('Task template added!', 'success')
     except Exception as e:
+        db.session.rollback()
         flash(f'Error: {e}', 'error')
     return redirect(url_for('admin'))
 
 
-@app.route('/admin/task/<int:task_id>/edit', methods=['POST'])
+@app.route('/admin/template/<int:template_id>/delete', methods=['POST'])
 @admin_required
-def admin_edit_task(task_id):
-    task = db.session.get(Task, task_id)
-    if not task:
-        flash('Task not found.', 'error')
-        return redirect(url_for('admin'))
-    try:
-        task.title_en = request.form['title_en']
-        task.title_bg = request.form['title_bg']
-        task.description_en = request.form['description_en']
-        task.description_bg = request.form['description_bg']
-        task.points = int(request.form['points'])
-        task.location_name = request.form['location_name']
-        task.lat = float(request.form['lat'])
-        task.lng = float(request.form['lng'])
-        task.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+def admin_delete_template(template_id):
+    t = db.session.get(TaskTemplate, template_id)
+    if t:
+        db.session.delete(t)
         db.session.commit()
-        flash('Task updated!', 'success')
-    except Exception as e:
-        flash(f'Error: {e}', 'error')
+        flash('Template deleted.', 'success')
     return redirect(url_for('admin'))
 
 
-@app.route('/admin/task/<int:task_id>/delete', methods=['POST'])
+@app.route('/admin/template/<int:template_id>/toggle', methods=['POST'])
 @admin_required
-def admin_delete_task(task_id):
-    task = db.session.get(Task, task_id)
-    if task:
-        db.session.delete(task)
+def admin_toggle_template(template_id):
+    t = db.session.get(TaskTemplate, template_id)
+    if t:
+        t.active = not t.active
         db.session.commit()
-        flash('Task deleted.', 'success')
     return redirect(url_for('admin'))
 
 

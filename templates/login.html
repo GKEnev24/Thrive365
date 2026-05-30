@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Log In' if lang == 'en' else 'Вход' }}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">🌿</div>
+    <h1 class="auth-title">{{ 'Welcome back' if lang == 'en' else 'Добре дошъл отново' }}</h1>
+    <p class="auth-sub">{{ 'Log in to continue your eco-journey.' if lang == 'en' else 'Влез, за да продължиш своето еко-пътуване.' }}</p>
+
+    <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+      <div class="form-group">
+        <label class="form-label">{{ 'Email' if lang == 'en' else 'Имейл' }}</label>
+        <input type="email" name="email" class="form-input" required value="{{ email or '' }}"
+               placeholder="you@example.com" autocomplete="email" autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Password' if lang == 'en' else 'Парола' }}</label>
+        <input type="password" name="password" class="form-input" required
+               placeholder="{{ 'Your password' if lang == 'en' else 'Твоята парола' }}" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">
+        {{ 'Log In →' if lang == 'en' else 'Влез →' }}
+      </button>
+    </form>
+
+    <div class="auth-switch">
+      {{ "Don't have an account?" if lang == 'en' else 'Нямаш профил?' }}
+      <a href="{{ url_for('register') }}">{{ 'Sign up' if lang == 'en' else 'Регистрирай се' }}</a>
+    </div>
+
+    {% if google_enabled %}
+    <div class="auth-divider"><span>{{ 'or' if lang == 'en' else 'или' }}</span></div>
+    <a href="{{ url_for('login_google') }}" class="btn-google">
+      {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
+    </a>
+    {% endif %}
+
+    <div class="auth-demo">
+      <a href="{{ url_for('login_demo') }}">{{ '✨ Or try the demo' if lang == 'en' else '✨ Или пробвай демо' }}</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

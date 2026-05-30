@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Create Account' if lang == 'en' else 'Създай профил' }}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">🌿</div>
+    <h1 class="auth-title">{{ 'Create your account' if lang == 'en' else 'Създай своя профил' }}</h1>
+    <p class="auth-sub">{{ 'Join Thrive365 and help make Burgas greener.' if lang == 'en' else 'Присъедини се към Thrive365 и помогни Бургас да е по-зелен.' }}</p>
+
+    <form method="POST" action="{{ url_for('register') }}" class="auth-form">
+      <div class="form-group">
+        <label class="form-label">{{ 'Full name' if lang == 'en' else 'Име' }}</label>
+        <input type="text" name="name" class="form-input" required value="{{ name or '' }}"
+               placeholder="{{ 'Your name' if lang == 'en' else 'Твоето име' }}" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Email' if lang == 'en' else 'Имейл' }}</label>
+        <input type="email" name="email" class="form-input" required value="{{ email or '' }}"
+               placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Password' if lang == 'en' else 'Парола' }}</label>
+        <input type="password" name="password" class="form-input" required minlength="6"
+               placeholder="{{ 'At least 6 characters' if lang == 'en' else 'Поне 6 символа' }}" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Confirm password' if lang == 'en' else 'Потвърди паролата' }}</label>
+        <input type="password" name="confirm" class="form-input" required minlength="6"
+               placeholder="{{ 'Repeat your password' if lang == 'en' else 'Повтори паролата' }}" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">
+        {{ 'Create Account →' if lang == 'en' else 'Създай профил →' }}
+      </button>
+    </form>
+
+    <div class="auth-switch">
+      {{ 'Already have an account?' if lang == 'en' else 'Вече имаш профил?' }}
+      <a href="{{ url_for('login') }}">{{ 'Log in' if lang == 'en' else 'Влез' }}</a>
+    </div>
+
+    {% if google_enabled %}
+    <div class="auth-divider"><span>{{ 'or' if lang == 'en' else 'или' }}</span></div>
+    <a href="{{ url_for('login_google') }}" class="btn-google">
+      {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -99,13 +99,13 @@
     {% endif %}
     <div class="activity-info">
       <div class="activity-title">
-        {{ completion.task.title_en if lang == 'en' else completion.task.title_bg }}
+        {{ completion.title_en if lang == 'en' else completion.title_bg }}
       </div>
       <div class="activity-date">
         {{ completion.completed_at|fdate('%-d %b %Y, %H:%M') }}
       </div>
     </div>
-    <div class="activity-points">+{{ completion.task.points }}</div>
+    <div class="activity-points">+{{ completion.points }}</div>
   </div>
   {% endfor %}
 

@@ -11,7 +11,7 @@
   </p>
 </div>
 
-{% set done_count = completed_ids | length %}
+{% set done_count = tasks | selectattr('verified') | list | length %}
 {% set total_count = tasks | length %}
 
 <div class="tasks-summary">
@@ -26,16 +26,20 @@
   </div>
 </div>
 
-{% set task_emojis = ['🌱', '🗑️', '🚲', '📸', '🦩'] %}
+<div class="tasks-personalized-note">
+  ✨ {{ 'Personalised for you' if lang == 'en' else 'Персонализирани за теб' }}
+</div>
+
+{% set cat_emojis = {'transport':'🚲','recycling':'♻️','waste':'🧹','nature':'🌱','water':'💧','energy':'💡','food':'🥗','community':'🤝','education':'📚'} %}
 
 {% for task in tasks %}
-{% set is_done = task.id in completed_ids %}
+{% set is_done = task.verified %}
 <div class="task-card {% if is_done %}task-completed{% endif %}" data-task-id="{{ task.id }}">
   <div class="task-header">
-    <div class="task-emoji">{{ task_emojis[loop.index0 % task_emojis|length] }}</div>
+    <div class="task-emoji">{{ cat_emojis.get(task.category, '🌿') }}</div>
     <div class="task-meta">
       <div class="task-title">{{ task.title_en if lang == 'en' else task.title_bg }}</div>
-      <div class="task-location">📍 {{ task.location_name }}</div>
+      <div class="task-location">📍 {{ task.location_name or ('Burgas' if lang == 'en' else 'Бургас') }}</div>
     </div>
     <div class="task-points">+{{ task.points }}</div>
   </div>
