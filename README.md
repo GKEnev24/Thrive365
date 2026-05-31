@@ -19,26 +19,16 @@ By combining technology, education, and incentives, Thrive365 helps citizens mak
 + Personal impact tracking<br>
 + Educational sustainability content<br>
 
-<h2>Screenshots</h2>
+<h2>Technologies Used</h2>
 
-<h2>Technology Stack</h2>
++ Python
++ Flask
++ Werkzeug
++ SQLAlchemy
++ SQLite
++ Qwen
++ Ollama
 
-<h2>Installation and Setup</h2>
-
-1. Clone the repository using the "Code" button or run:
-
-```bash
-git clone https://github.com/IHNoneva24/Thrive365.git
-```
-
-2. Open the project.
-
-3. Run the application.
-
-<h2>Documentation and Presentation</h2>
-
-+ Presentation ⮕ [Open Presentation](https://codingburgas-my.sharepoint.com/:p:/g/personal/ihnoneva24_codingburgas_bg/IQB0_ULHi7TvTaMm4Rs2wB_rAQkvxMXneRXVv63a98-wjJY?e=29DYsb)<br>
-+ Documentation ⮕ [View Documentation](https://codingburgas-my.sharepoint.com/:w:/g/personal/ihnoneva24_codingburgas_bg/IQA_5FapljfBSbaSseQhzPulASdJndvNUJtgrXfZmwD_zlg?e=yEIrDZ)
 
 <h2>Our Team</h2>
 
