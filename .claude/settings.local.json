@@ -63,7 +63,12 @@
       "Bash(python3 -c 'print\\(f'\\\\''elapsed: {\\(__TRACKED_VAR__ - __TRACKED_VAR__\\):.2f}s'\\\\''\\)')",
       "Bash(curl -s -c /tmp/c4.txt -L -X POST http://localhost:5001/register --data-urlencode 'name=Test Warm' --data-urlencode email=__TRACKED_VAR__ --data-urlencode password=testpass123 --data-urlencode confirm=testpass123 -o /dev/null -w 'register: %{http_code} \\(after redirects\\)\\\\n')",
       "Bash(curl -s -b /tmp/c4.txt -X POST http://localhost:5001/onboarding --data-urlencode neighborhood=Лазур --data-urlencode transport=bike --data-urlencode home_type=apartment --data-urlencode garden_access=balcony --data-urlencode household_size=2 --data-urlencode interests=cycling --data-urlencode interests=recycling --data-urlencode time_commitment=medium --data-urlencode activity_level=medium --data-urlencode age_range=adult -o /dev/null -w 'onboarding: %{http_code}\\\\n')",
-      "Bash(python3 -c 'print\\(f'\\\\''elapsed: {\\(__TRACKED_VAR__ - __TRACKED_VAR__\\):.2f}s \\(target: <6s, must NEVER hang\\)'\\\\''\\)')"
+      "Bash(python3 -c 'print\\(f'\\\\''elapsed: {\\(__TRACKED_VAR__ - __TRACKED_VAR__\\):.2f}s \\(target: <6s, must NEVER hang\\)'\\\\''\\)')",
+      "Bash(curl -s -c /tmp/c.txt http://localhost:5001/login/demo -L -o /dev/null -w \"login: %{http_code}\\\\n\")",
+      "Bash(curl -s -b /tmp/c.txt -X POST http://localhost:5001/api/thriveai/chat -H 'Content-Type: application/json' -d '{\"message\": \"How many points do I have?\", \"history\": []}' -w '\\\\nhttp: %{http_code}\\\\n')",
+      "Bash(ps -axo pid,rss,command)",
+      "Bash(awk '{printf \"PID %s : %.2f GB\\\\n\", $1, $2/1024/1024}')",
+      "Bash(curl -s -b /tmp/c.txt http://localhost:5001/tasks)"
     ]
   }
 }
