@@ -1186,4 +1186,7 @@ if __name__ == '__main__':
     # Bind to localhost by default; opt in to LAN exposure with FLASK_HOST=0.0.0.0
     # (e.g. for mobile testing on the same wifi).
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
-    app.run(debug=debug, host=host, port=5001)
+    # threaded=True so chat and photo verification can run concurrently. Without
+    # this the Werkzeug dev server serialises EVERY request — a 30s Qwen call
+    # would block the AJAX chat poll, the next page load, even static assets.
+    app.run(debug=debug, host=host, port=5001, threaded=True)

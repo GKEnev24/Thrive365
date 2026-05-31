@@ -68,10 +68,13 @@ except ValueError:
 
 # Photo verification strictness: if the model passes a photo but reports a confidence
 # below this (0-100), we override it to a rejection. Higher = stricter. 0 disables.
+# Default 60 — borderline "maybe this is the right action" passes are downgraded.
+# A genuine, clear photo of the task scores 80+ on Qwen 2.5-VL; raising the floor
+# from 50 → 60 trims the false-positive band without blocking honest users.
 try:
-    VERIFY_MIN_CONFIDENCE = int(os.environ.get('VERIFY_MIN_CONFIDENCE', '50'))
+    VERIFY_MIN_CONFIDENCE = int(os.environ.get('VERIFY_MIN_CONFIDENCE', '60'))
 except ValueError:
-    VERIFY_MIN_CONFIDENCE = 50
+    VERIFY_MIN_CONFIDENCE = 60
 
 # Hard timeout (seconds) on the task-personalisation Qwen call. If the model
 # can't respond within this window we return the original curated task copy.
@@ -82,12 +85,33 @@ try:
 except ValueError:
     TAILOR_TIMEOUT_S = 5.0
 
-# Background-pool worker used solely to run a single Qwen inference with a
-# wall-clock timeout. A single worker is enough because llama-cpp models are
-# not thread-safe at the inference call level — we never want concurrent
-# generate calls on the same model.
+# Hard timeout (seconds) on conversational chat. Qwen 3B on CPU generates ~10-30
+# tokens/sec; 500 tokens worst-case = ~16-50s. We bound the wait to 25s and
+# fall back to the heuristic brain if it overruns. Override with THRIVE_CHAT_TIMEOUT.
+try:
+    CHAT_TIMEOUT_S = float(os.environ.get('THRIVE_CHAT_TIMEOUT', '25'))
+except ValueError:
+    CHAT_TIMEOUT_S = 25.0
+
+# Hard timeout (seconds) on photo verification. Vision inference is heavier
+# than text — a downscaled 768px photo plus ~300 tokens of JSON output takes
+# 15-40s on a Mac CPU. We bound at 45s; on timeout we auto-accept with a
+# friendly message so a slow model doesn't punish the user.
+try:
+    VERIFY_TIMEOUT_S = float(os.environ.get('THRIVE_VERIFY_TIMEOUT', '45'))
+except ValueError:
+    VERIFY_TIMEOUT_S = 45.0
+
+# Background-pool workers used to run Qwen inference with a wall-clock timeout.
+# Single worker per pool because llama-cpp models are NOT safe for concurrent
+# inference on the same instance. Separate pools per feature so a slow vision
+# call doesn't block the next chat reply (and vice versa).
 _tailor_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1,
                                                     thread_name_prefix='thriveai-tailor')
+_chat_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                   thread_name_prefix='thriveai-chat')
+_verify_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                     thread_name_prefix='thriveai-verify')
 
 # How many past turns of conversation to keep as context.
 MAX_HISTORY_TURNS = 12
@@ -290,8 +314,10 @@ def _qwen_chat(system, history, message):
         role = 'assistant' if turn.get('role') == 'assistant' else 'user'
         messages.append({'role': role, 'content': turn.get('content', '')})
     messages.append({'role': 'user', 'content': message})
+    # max_tokens 500 (was 1500): chat replies are conversational, not essays.
+    # On a Mac CPU this bounds the worst-case generation time to ~20s instead of ~60s.
     out = model.create_chat_completion(
-        messages=messages, temperature=0.7, max_tokens=1500)
+        messages=messages, temperature=0.7, max_tokens=500)
     text = out['choices'][0]['message']['content'].strip()
     if not text:
         raise ValueError('Qwen returned empty content')
@@ -425,7 +451,15 @@ def chat(message, history=None, lang='en', context=None):
 
     if _get_chat_model(block=False) is not None:
         try:
-            return {'reply': _qwen_chat(system, history, message), 'engine': 'qwen'}
+            # Hard wall-clock timeout so a slow CPU inference can't make the
+            # browser give up with "could not reach the server". On timeout we
+            # fall back to the heuristic brain rather than leave the user hanging.
+            future = _chat_pool.submit(_qwen_chat, system, history, message)
+            reply = future.result(timeout=CHAT_TIMEOUT_S)
+            return {'reply': reply, 'engine': 'qwen'}
+        except concurrent.futures.TimeoutError:
+            print(f'[ThriveAI] Qwen chat exceeded {CHAT_TIMEOUT_S}s, using heuristic. '
+                  'Subsequent calls will be faster as the model stays resident.')
         except Exception as e:  # noqa: BLE001
             print(f'[ThriveAI] Qwen chat failed, falling back: {e}')
 
@@ -583,9 +617,10 @@ def _parse_verification(text):
 def verify_image(task, photo_path, lang='en'):
     """Verify a task-completion photo.
 
-    Returns (verified: bool, feedback: str). Never raises. If no AI provider is
-    available, accepts the photo with an encouraging message (same friendly
-    behaviour the app had before, so verification never hard-blocks a user).
+    Returns (verified: bool, feedback: str). Never raises. Blocks on the
+    vision model load (which can take 10-60s on first call) so we actually
+    verify the photo instead of silently auto-accepting. Hard timeout via
+    THRIVE_VERIFY_TIMEOUT prevents indefinite hangs.
     """
     prompt = _verification_prompt(task, lang)
     try:
@@ -594,14 +629,29 @@ def verify_image(task, photo_path, lang='en'):
         print(f'[ThriveAI] could not read/process photo: {e}')
         return _accept_fallback(lang)
 
-    if _get_vision_model(block=False) is not None:
-        try:
-            return _parse_verification(_qwen_vision(prompt, image_b64, mime))
-        except Exception as e:  # noqa: BLE001
-            traceback.print_exc()
-            print(f'[ThriveAI] Qwen vision failed, falling back: {e}')
+    # block=True: we want to actually run the model on the photo. Auto-accepting
+    # on every upload because the model hadn't warmed up yet was making
+    # verification look broken — the user saw "verified" with no real check.
+    # The vision-pool wrapper still bounds total time at VERIFY_TIMEOUT_S.
+    def _run():
+        if _get_vision_model(block=True) is None:
+            return None
+        return _qwen_vision(prompt, image_b64, mime)
 
-    return _accept_fallback(lang)
+    try:
+        future = _verify_pool.submit(_run)
+        raw = future.result(timeout=VERIFY_TIMEOUT_S)
+        if raw is None:
+            return _accept_fallback(lang)
+        return _parse_verification(raw)
+    except concurrent.futures.TimeoutError:
+        print(f'[ThriveAI] vision verification exceeded {VERIFY_TIMEOUT_S}s, accepting. '
+              'The model will be resident for subsequent uploads (much faster).')
+        return _accept_fallback(lang)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        print(f'[ThriveAI] Qwen vision failed, falling back: {e}')
+        return _accept_fallback(lang)
 
 
 # Longest edge (px) we feed the vision model. A phone photo is ~3000px, which the
