@@ -3,7 +3,7 @@
 
 </div>
 <br>
-**Thrive365** is a web platform designed to promote sustainable living and environmental responsibility in Burgas. Through daily eco-friendly challenges, gamification, and community engagement, users are encouraged to adopt greener habits and contribute to a more sustainable city.
+Thrive365 is a web platform designed to promote sustainable living and environmental responsibility in Burgas. Through daily eco-friendly challenges, gamification, and community engagement, users are encouraged to adopt greener habits and contribute to a more sustainable city.
 
 The platform rewards users with points and achievements for completing activities such as recycling, reducing waste, and choosing environmentally friendly transportation. It also features an interactive map that highlights safe and eco-friendly routes, parks, recycling stations, cycling infrastructure, and public transport options.
 
@@ -51,3 +51,4 @@ git clone https://github.com/IHNoneva24/Thrive365.git
 | [**Aleksandar Georgiev**](https://github.com/AVGeorgiev23) | Back-End Developer |
 
 <h2 align="center"></h2>
+Made with ❤️ by us.
