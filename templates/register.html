@@ -1,12 +1,13 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
-{% block title %}{{ 'Create Account' if lang == 'en' else 'Създай профил' }}{% endblock %}
+{% block title %}{{ 'Create account' if lang == 'en' else 'Създай профил' }}{% endblock %}
 
 {% block content %}
 <div class="auth-page">
   <div class="auth-card">
-    <div class="auth-logo">🌿</div>
-    <h1 class="auth-title">{{ 'Create your account' if lang == 'en' else 'Създай своя профил' }}</h1>
-    <p class="auth-sub">{{ 'Join Thrive365 and help make Burgas greener.' if lang == 'en' else 'Присъедини се към Thrive365 и помогни Бургас да е по-зелен.' }}</p>
+    <div class="auth-logo">{{ icon('leaf', 24) }}</div>
+    <h1 class="auth-title">{{ 'Create your account' if lang == 'en' else 'Създай профил' }}</h1>
+    <p class="auth-sub">{{ 'Join Thrive365 and contribute to a greener Burgas.' if lang == 'en' else 'Присъедини се към Thrive365 за по-зелен Бургас.' }}</p>
 
     <form method="POST" action="{{ url_for('register') }}" class="auth-form">
       <div class="form-group">
@@ -30,7 +31,7 @@
                placeholder="{{ 'Repeat your password' if lang == 'en' else 'Повтори паролата' }}" autocomplete="new-password">
       </div>
       <button type="submit" class="btn btn-primary btn-full">
-        {{ 'Create Account →' if lang == 'en' else 'Създай профил →' }}
+        {{ 'Create account' if lang == 'en' else 'Създай профил' }} {{ icon('arrow-right', 14) }}
       </button>
     </form>
 
@@ -41,7 +42,7 @@
 
     {% if google_enabled %}
     <div class="auth-divider"><span>{{ 'or' if lang == 'en' else 'или' }}</span></div>
-    <a href="{{ url_for('login_google') }}" class="btn-google">
+    <a href="{{ url_for('login_google') }}" class="btn-google" style="width:100%;justify-content:center;">
       {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
     </a>
     {% endif %}

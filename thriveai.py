@@ -1,5 +1,5 @@
 """
-ThriveAI — the brain behind Thrive365. 🌱🤖
+ThriveAI — the brain behind Thrive365.
 
 A single, self-contained module that powers both the conversational assistant
 and the eco-task photo verifier. It is designed to be SMART and FREE:
@@ -132,7 +132,7 @@ def _get_chat_model(block=True):
                 n_gpu_layers=QWEN_GPU_LAYERS,
                 verbose=False,
             )
-            print('[ThriveAI] Qwen 2.5 chat model ready. 🌱')
+            print('[ThriveAI] Qwen 2.5 chat model ready.')
         except Exception as e:  # noqa: BLE001 — any load error must not crash the app
             print(f'[ThriveAI] could not load Qwen chat model, using heuristic: {e}')
             _chat_failed = True
@@ -173,7 +173,7 @@ def _get_vision_model(block=True):
                 n_gpu_layers=QWEN_GPU_LAYERS,
                 verbose=False,
             )
-            print('[ThriveAI] Qwen 2.5-VL vision model ready. 📸')
+            print('[ThriveAI] Qwen 2.5-VL vision model ready.')
         except Exception as e:  # noqa: BLE001
             print(f'[ThriveAI] could not load Qwen vision model, photos auto-accepted: {e}')
             _vision_failed = True
@@ -202,7 +202,7 @@ def build_system_prompt(lang, context=None):
     user/app state so ThriveAI can give grounded, personalised answers."""
     reply_lang = 'Bulgarian (български)' if lang == 'bg' else 'English'
 
-    base = f"""You are ThriveAI 🌱 — a smart, friendly, genuinely helpful AI assistant. \
+    base = f"""You are ThriveAI — a knowledgeable, professional, genuinely helpful AI assistant. \
 You are a FULL general-purpose assistant: you can answer ANY question and help with \
 ANY topic, exactly like a capable modern AI chatbot. That includes science, technology, \
 math, coding, history, geography, health, cooking, languages and translation, writing, \
@@ -227,8 +227,8 @@ How to respond:
 - Be accurate and genuinely useful first. For general questions, give a real, correct, \
 complete answer (use clear structure, examples, or short code blocks when helpful).
 - Be reasonably concise but never unhelpfully short — match the depth the question needs.
-- Warm and encouraging, with the occasional tasteful emoji. When it fits naturally, you \
-can gently connect things back to greener living, but don't force it.
+- Professional, warm and respectful in tone. Do NOT use emojis. When it fits naturally, \
+you can gently connect things back to sustainable living, but don't force it.
 - Use the live user data below for anything app/progress related, and NEVER invent point \
 totals, prize codes, ranks, or task results — only state what the data shows.
 - If you genuinely don't know or aren't sure, say so honestly.
@@ -248,9 +248,9 @@ IMPORTANT: Always write your reply in {reply_lang}, regardless of the language o
         if context.get('today_tasks'):
             lines.append("- Today's eco-tasks:")
             for t in context['today_tasks']:
-                status = '✅ done' if t.get('done') else 'not yet done'
+                status = 'done' if t.get('done') else 'not yet done'
                 lines.append(
-                    f"    • \"{t['title']}\" (+{t['points']} pts, {t['location']}) — {status}")
+                    f"    - \"{t['title']}\" (+{t['points']} pts, {t['location']}) — {status}")
         if context.get('earned_badges'):
             lines.append(f"- Badges earned: {', '.join(context['earned_badges'])}")
         if context.get('next_prize'):
@@ -331,16 +331,15 @@ def _heuristic_chat(message, lang, context=None):
     def has(*words):
         return any(w in msg for w in words)
 
-    # Personalised greeting / status
     if has('point', 'точк', 'score', 'резултат') and ctx.get('points') is not None:
         if bg:
-            return f"В момента имаш {ctx['points']} точки ⚡. Изпълни още задача от днешните, за да добавиш повече!"
-        return f"You currently have {ctx['points']} points ⚡. Complete one of today's tasks to add more!"
+            return f"В момента имаш {ctx['points']} точки. Изпълни още една днешна задача, за да добавиш."
+        return f"You currently have {ctx['points']} points. Complete one of today's tasks to add more."
 
     if has('streak', 'серия') and ctx.get('streak') is not None:
         if bg:
-            return f"Серията ти е {ctx['streak']} дни 🔥. Влизай и изпълнявай по една задача всеки ден, за да не я загубиш!"
-        return f"Your streak is {ctx['streak']} day(s) 🔥. Complete a task each day to keep it alive!"
+            return f"Серията ти е {ctx['streak']} дни. Влизай и изпълнявай по една задача всеки ден, за да я задържиш."
+        return f"Your streak is {ctx['streak']} day(s). Complete a task each day to keep it alive."
 
     if has('task', 'задач', 'today', 'днес', 'challenge', 'предизвикател', 'do '):
         tasks = ctx.get('today_tasks') or []
@@ -348,53 +347,52 @@ def _heuristic_chat(message, lang, context=None):
         if pending:
             t = pending[0]
             if bg:
-                return f"Опитай „{t['title']}“ ({t['location']}) за +{t['points']} точки 🌿. Качи снимка, за да я потвърдя!"
-            return f"Try \"{t['title']}\" ({t['location']}) for +{t['points']} points 🌿. Upload a photo and I'll verify it!"
+                return f"Опитай „{t['title']}“ ({t['location']}) за +{t['points']} точки. Качи снимка, за да я потвърдя."
+            return f"Try \"{t['title']}\" ({t['location']}) for +{t['points']} points. Upload a photo and I'll verify it."
         if bg:
-            return "Изпълни всички днешни задачи! 🎉 Върни се утре за нови предизвикателства."
-        return "You've done all of today's tasks! 🎉 Come back tomorrow for new challenges."
+            return "Изпълни всички днешни задачи. Върни се утре за нови предизвикателства."
+        return "You've completed all of today's tasks. Come back tomorrow for new challenges."
 
     if has('shop', 'reward', 'prize', 'redeem', 'магазин', 'наград', 'купи'):
         if bg:
-            return "В Магазина можеш да обмениш точки за реални награди в Бургас — кафе, карта за транспорт, еко чанта или дори засаждане на дърво 🌳."
-        return "In the Shop you can spend points on real Burgas rewards — coffee, a bus pass, an eco tote, or even planting a tree 🌳."
+            return "В Магазина можеш да замениш точки за реални награди в Бургас — кафе, карта за транспорт, еко чанта или засаждане на дърво."
+        return "In Rewards you can spend points on real Burgas partner offers — coffee, a bus pass, an eco tote, or planting a tree."
 
     if has('badge', 'значк', 'achievement', 'постижен'):
         if bg:
-            return "Значките се отключват с напредъка ти: първа задача 🌱, 100/500/1000 точки и 7-дневна серия 🔥. Виж ги в Профила."
-        return "Badges unlock as you progress: first task 🌱, 100/500/1000 points, and a 7-day streak 🔥. Check them in your Profile."
+            return "Значките се отключват с напредъка ти: първа задача, 100/500/1000 точки и 7-дневна серия. Виж ги в Профила."
+        return "Badges unlock as you progress: first task, 100/500/1000 points, and a 7-day streak. Check them in your Profile."
 
     if has('map', 'карта', 'where', 'къде', 'location', 'локац'):
         if bg:
-            return "Картата показва къде са днешните задачи и топлинна карта на активността в Бургас 🗺️. Виж раздел „Карта“."
-        return "The Map shows where today's tasks are plus a community activity heatmap of Burgas 🗺️. Open the Map tab."
+            return "Картата показва къде са днешните задачи и топлинна карта на активността в Бургас. Виж раздел „Карта“."
+        return "The Map shows where today's tasks are plus a community activity heatmap of Burgas. Open the Map tab."
 
     if has('photo', 'verif', 'снимк', 'провер', 'upload', 'качи'):
         if bg:
-            return "За да изпълниш задача, качи снимка на еко-действието си. Аз я преглеждам и ако е автентична — печелиш точките! 📸"
-        return "To complete a task, upload a photo of your eco-action. I review it and if it's authentic — you earn the points! 📸"
+            return "За да изпълниш задача, качи снимка на действието си. Аз я преглеждам и ако е автентична — печелиш точките."
+        return "To complete a task, upload a photo of the action. I review it and if it's authentic, you earn the points."
 
     if has('recycl', 'рецикл', 'waste', 'боклук', 'отпадъц', 'trash'):
         if bg:
-            return "Разделяй отпадъците: пластмаса, хартия, стъкло и био 🟡🔵🟢. В Бургас има цветни контейнери в повечето квартали."
-        return "Separate your waste: plastic, paper, glass, and organics 🟡🔵🟢. Burgas has colour-coded bins in most neighbourhoods."
+            return "Разделяй отпадъците: пластмаса, хартия, стъкло и био. В Бургас има цветни контейнери в повечето квартали."
+        return "Separate your waste: plastic, paper, glass, and organics. Burgas has colour-coded bins in most neighbourhoods."
 
     if has('hello', 'hi ', 'hey', 'здрав', 'здравей', 'привет') or msg.strip() in ('hi', 'hello', 'здрасти'):
         name = ctx.get('name', '')
         if bg:
-            return f"Здравей{', ' + name if name else ''}! 🌱 Аз съм ThriveAI. Питай ме за днешните задачи, точки, награди или съвети за по-зелен Бургас."
-        return f"Hi{', ' + name if name else ''}! 🌱 I'm ThriveAI. Ask me about today's tasks, your points, rewards, or tips for a greener Burgas."
+            return f"Здравей{', ' + name if name else ''}. Аз съм ThriveAI. Питай ме за днешните задачи, точки, награди или съвети за по-зелен Бургас."
+        return f"Hi{', ' + name if name else ''}, I'm ThriveAI. Ask me about today's tasks, your points, rewards, or tips for a greener Burgas."
 
-    # Default — heuristic mode can't answer open-ended/general questions; be honest.
     if bg:
         return ("В момента работя в опростен офлайн режим, затова мога да помагам най-вече с "
                 "Thrive365 — задачи, точки, значки, награди и еко-съвети. За пълни отговори на "
                 "всякакви въпроси, инсталирай зависимостите (pip install -r requirements.txt), "
-                "за да заредиш Qwen 2.5. С какво да помогна? 🌱")
+                "за да заредиш Qwen 2.5. С какво да помогна?")
     return ("I'm running in a simplified offline mode right now, so I can mainly help with "
-            "Thrive365 — tasks, points, badges, rewards, and eco-tips. To answer any question "
-            "fully, install the dependencies (pip install -r requirements.txt) so Qwen 2.5 "
-            "can load. How can I help? 🌱")
+            "Thrive365 — tasks, points, badges, rewards, and sustainability tips. To answer any "
+            "question fully, install the dependencies (pip install -r requirements.txt) so "
+            "Qwen 2.5 can load. How can I help?")
 
 
 # ── Public API: chat ──────────────────────────────────────────────────────────
@@ -606,5 +604,5 @@ def _prepare_image(photo_path):
 
 def _accept_fallback(lang):
     if lang == 'bg':
-        return True, 'Чудесно еко-действие! Приносът ти за по-зелен Бургас е потвърден. 🌿'
-    return True, 'Great eco-action! Your contribution to a greener Burgas is verified. 🌿'
+        return True, 'Действието е потвърдено. Благодарим за приноса към по-зелен Бургас.'
+    return True, 'Action verified. Thank you for contributing to a greener Burgas.'

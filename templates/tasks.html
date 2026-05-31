@@ -1,13 +1,21 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
-{% block title %}{{ 'Daily Tasks' if lang == 'en' else 'Дневни задачи' }}{% endblock %}
+{% block title %}{{ 'Tasks' if lang == 'en' else 'Задачи' }}{% endblock %}
 
 {% block content %}
 
+{% set cat_icons = {
+  'transport':'bike', 'recycling':'recycle', 'waste':'broom',
+  'nature':'leaf', 'water':'droplet', 'energy':'bulb',
+  'food':'salad', 'community':'handshake', 'education':'book'
+} %}
+
 <div class="page-header">
-  <h1 class="page-title">{{ "Today's Challenges" if lang == 'en' else 'Днешните предизвикателства' }}</h1>
+  <h1 class="page-title">{{ "Today's challenges" if lang == 'en' else 'Днешните предизвикателства' }}</h1>
   <p class="page-subtitle">
-    📅 {{ today|fdate('%A, %B %-d') if lang == 'en' else today|fdate('%-d.%m.%Y') }}
-    &nbsp;·&nbsp; 🔥 {{ current_user.streak }}-{{ 'day streak' if lang == 'en' else 'дневна серия' }}
+    {{ icon('calendar', 13) }} {{ today|fdate('%A, %B %d') if lang == 'en' else today|fdate('%d.%m.%Y') }}
+    <span class="sep">·</span>
+    {{ icon('flame', 13) }} {{ current_user.streak }} {{ 'day streak' if lang == 'en' else 'дневна серия' }}
   </p>
 </div>
 
@@ -17,31 +25,29 @@
 <div class="tasks-summary">
   <div>
     <div class="tasks-progress-text">{{ done_count }} / {{ total_count }} {{ 'completed' if lang == 'en' else 'изпълнени' }}</div>
-    <div class="progress-bar" style="width:160px;">
+    <div class="progress-bar">
       <div class="progress-fill" style="width:{{ (done_count / total_count * 100) if total_count > 0 else 0 }}%;"></div>
     </div>
   </div>
   <div class="tasks-points-total">
-    ⚡ {{ tasks | sum(attribute='points') }} {{ 'pts available' if lang == 'en' else 'т. налични' }}
+    {{ icon('zap', 14) }} {{ tasks | sum(attribute='points') }} {{ 'pts available' if lang == 'en' else 'т. налични' }}
   </div>
 </div>
 
 <div class="tasks-personalized-note">
-  ✨ {{ 'Personalised for you' if lang == 'en' else 'Персонализирани за теб' }}
+  {{ icon('sparkles', 13) }} {{ 'Personalised for you' if lang == 'en' else 'Персонализирани за теб' }}
 </div>
-
-{% set cat_emojis = {'transport':'🚲','recycling':'♻️','waste':'🧹','nature':'🌱','water':'💧','energy':'💡','food':'🥗','community':'🤝','education':'📚'} %}
 
 {% for task in tasks %}
 {% set is_done = task.verified %}
 <div class="task-card {% if is_done %}task-completed{% endif %}" data-task-id="{{ task.id }}">
   <div class="task-header">
-    <div class="task-emoji">{{ cat_emojis.get(task.category, '🌿') }}</div>
+    <div class="task-icon-wrap">{{ icon(cat_icons.get(task.category, 'leaf'), 20) }}</div>
     <div class="task-meta">
       <div class="task-title">{{ task.title_en if lang == 'en' else task.title_bg }}</div>
-      <div class="task-location">📍 {{ task.location_name or ('Burgas' if lang == 'en' else 'Бургас') }}</div>
+      <div class="task-location">{{ icon('map-pin', 12) }} {{ task.location_name or ('Burgas' if lang == 'en' else 'Бургас') }}</div>
     </div>
-    <div class="task-points">+{{ task.points }}</div>
+    <div class="task-points">{{ icon('zap', 12) }} {{ task.points }}</div>
   </div>
 
   <p class="task-desc">{{ task.description_en if lang == 'en' else task.description_bg }}</p>
@@ -49,13 +55,13 @@
   <div class="task-footer">
     {% if is_done %}
     <div class="task-done-badge">
-      <span>✅</span>
+      {{ icon('check-circle', 16) }}
       <span>{{ 'Completed' if lang == 'en' else 'Изпълнено' }}</span>
     </div>
     {% else %}
     <button class="btn btn-primary btn-sm complete-btn"
       onclick="openTaskModal({{ task.id }}, '{{ (task.title_en if lang == 'en' else task.title_bg)|replace("'","\\'")|replace('"','&quot;') }}', {{ task.points }})">
-      {{ '✅ Complete Task' if lang == 'en' else '✅ Изпълни задача' }}
+      {{ icon('camera', 14) }} {{ 'Complete task' if lang == 'en' else 'Изпълни задача' }}
     </button>
     {% endif %}
   </div>
@@ -64,13 +70,13 @@
 
 {% if not tasks %}
 <div class="empty-state">
-  <div class="empty-state-icon">🌱</div>
+  <div class="empty-state-icon-wrap">{{ icon('leaf', 22) }}</div>
   <div class="empty-state-text">{{ 'No tasks today' if lang == 'en' else 'Няма задачи днес' }}</div>
-  <div class="empty-state-sub">{{ 'Check back tomorrow for new challenges!' if lang == 'en' else 'Върни се утре за нови предизвикателства!' }}</div>
+  <div class="empty-state-sub">{{ 'Check back tomorrow for new challenges.' if lang == 'en' else 'Върни се утре за нови предизвикателства.' }}</div>
 </div>
 {% endif %}
 
-<!-- Task Completion Modal -->
+<!-- Task completion modal -->
 <div id="task-modal" class="modal-overlay">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -81,9 +87,9 @@
         <div class="step-dot"></div>
         <div class="step-dot"></div>
       </div>
-      <div class="modal-title" id="modal-task-title">Complete Task</div>
+      <div class="modal-title" id="modal-task-title">Complete task</div>
       <div class="modal-subtitle">
-        <span id="modal-task-points" style="color:var(--green);font-weight:800;"></span>
+        <span id="modal-task-points" style="color:var(--green-dark);font-weight:700;"></span>
         &nbsp;{{ 'upon verification' if lang == 'en' else 'при потвърждение' }}
       </div>
     </div>
@@ -91,71 +97,66 @@
 
       <!-- Step 1: GPS -->
       <div id="step-gps">
-        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">
-          📍 {{ 'Step 1: Verify Location' if lang == 'en' else 'Стъпка 1: Провери местоположение' }}
-        </h3>
+        <h3 class="modal-step-title">{{ icon('map-pin', 16) }} {{ 'Verify location' if lang == 'en' else 'Провери местоположение' }}</h3>
         <div class="gps-status">
-          <span class="gps-icon" id="gps-status-icon">📍</span>
+          <span class="gps-icon" id="gps-status-icon">{{ icon('map-pin', 18) }}</span>
           <div class="gps-text" id="gps-status-text">
-            <strong>{{ 'Checking your location…' if lang == 'en' else 'Проверяване на местоположение…' }}</strong>
+            <strong>{{ 'Checking your location…' if lang == 'en' else 'Проверка на местоположение…' }}</strong>
             <span>{{ 'Please allow location access' if lang == 'en' else 'Моля разрешете достъп до местоположение' }}</span>
           </div>
         </div>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
-          {{ 'We check that you\'re in Burgas to verify your eco-action is local.' if lang == 'en' else 'Проверяваме, че сте в Бургас, за да потвърдим, че еко-действието е местно.' }}
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">
+          {{ "We confirm you're in Burgas so your eco-action counts as local." if lang == 'en' else 'Потвърждаваме, че сте в Бургас, за да се отчете действието като местно.' }}
         </p>
         <button class="btn btn-primary btn-full" id="gps-next-btn" onclick="gpsNext()" disabled>
-          {{ 'Continue →' if lang == 'en' else 'Продължи →' }}
+          {{ 'Continue' if lang == 'en' else 'Продължи' }} {{ icon('arrow-right', 14) }}
         </button>
       </div>
 
-      <!-- Step 2: Photo Upload -->
+      <!-- Step 2: Photo upload -->
       <div id="step-photo" class="hidden">
-        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">
-          📸 {{ 'Step 2: Upload Photo Proof' if lang == 'en' else 'Стъпка 2: Качи снимка' }}
-        </h3>
+        <h3 class="modal-step-title">{{ icon('camera', 16) }} {{ 'Upload photo proof' if lang == 'en' else 'Качи снимка' }}</h3>
 
-        <!-- Preview -->
         <div id="photo-preview" class="photo-preview hidden">
           <img id="preview-img" src="" alt="Preview">
-          <div class="photo-preview-remove" onclick="removePhoto()">✕</div>
+          <div class="photo-preview-remove" onclick="removePhoto()">{{ icon('x', 14) }}</div>
         </div>
 
-        <!-- Upload area -->
         <div id="upload-area" class="photo-upload-area">
           <input type="file" id="photo-input" accept="image/*" capture="environment">
-          <div class="upload-icon">📷</div>
-          <div class="upload-text">{{ 'Take or Upload Photo' if lang == 'en' else 'Направи или Качи снимка' }}</div>
-          <div class="upload-hint">{{ 'JPG, PNG, WebP · Max 16MB' if lang == 'en' else 'JPG, PNG, WebP · До 16MB' }}</div>
+          <div class="upload-icon-wrap">{{ icon('camera', 22) }}</div>
+          <div class="upload-text">{{ 'Take or upload a photo' if lang == 'en' else 'Направи или качи снимка' }}</div>
+          <div class="upload-hint">{{ 'JPG, PNG, WebP · Max 16 MB' if lang == 'en' else 'JPG, PNG, WebP · До 16 MB' }}</div>
         </div>
 
-        <p style="font-size:13px;color:var(--text-muted);margin:12px 0 20px;">
-          {{ 'Our AI will verify your photo shows the eco-action. Be authentic!' if lang == 'en' else 'Нашият AI ще провери дали снимката показва еко-действието. Бъдете автентични!' }}
+        <p style="font-size:12px;color:var(--text-muted);margin:12px 0 18px;">
+          {{ 'Our AI verifies your photo shows the actual eco-action.' if lang == 'en' else 'AI проверява, че снимката показва действителното еко-действие.' }}
         </p>
         <button class="btn btn-primary btn-full" id="photo-submit-btn" onclick="submitTaskCompletion()" disabled>
-          🤖 {{ 'Submit for AI Verification' if lang == 'en' else 'Изпрати за AI верификация' }}
+          {{ icon('sparkles', 14) }} {{ 'Submit for verification' if lang == 'en' else 'Изпрати за проверка' }}
         </button>
       </div>
 
       <!-- Step 3: Verifying -->
       <div id="step-verifying" class="ai-verifying hidden">
         <div class="spinner"></div>
-        <div class="verifying-text">{{ 'AI is reviewing your photo…' if lang == 'en' else 'AI преглежда снимката ти…' }}</div>
-        <div class="verifying-subtext">{{ 'This can take up to a minute on first use' if lang == 'en' else 'Това може да отнеме до минута при първо ползване' }}</div>
+        <div class="verifying-text">{{ 'AI is reviewing your photo…' if lang == 'en' else 'AI преглежда снимката…' }}</div>
+        <div class="verifying-subtext">{{ 'This can take up to a minute on first use.' if lang == 'en' else 'Това може да отнеме до минута при първо ползване.' }}</div>
       </div>
 
       <!-- Step 4: Result -->
       <div id="step-result" class="result-screen hidden">
-        <div class="result-icon" id="result-icon">🎉</div>
-        <div class="result-title" id="result-title">Task Verified!</div>
+        <div class="result-icon-wrap success" id="result-icon-wrap">
+          <span id="result-icon-svg">{{ icon('check', 32) }}</span>
+        </div>
+        <div class="result-title" id="result-title">Task verified</div>
         <div class="result-subtitle" id="result-subtitle"></div>
         <div class="result-points" id="result-points">
-          <span>⚡</span>
-          <span class="points-value">+0 pts</span>
+          {{ icon('zap', 16) }} <span class="points-value">+0 pts</span>
         </div>
         <div class="new-badges hidden" id="new-badges"></div>
         <button class="btn btn-primary btn-full mt-16" onclick="closeTaskResult()">
-          {{ 'Done!' if lang == 'en' else 'Готово!' }}
+          {{ 'Done' if lang == 'en' else 'Готово' }}
         </button>
       </div>
 

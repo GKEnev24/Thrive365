@@ -1,19 +1,19 @@
+{% from "_icons.html" import icon %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thrive365 Admin</title>
+  <title>Thrive365 — Admin</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
 
 {% if not authenticated %}
-<!-- Login gate -->
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
   <div class="admin-login">
-    <div class="admin-login-icon">🔐</div>
+    <div class="admin-login-icon">{{ icon('shield', 22) }}</div>
     <div class="admin-login-title">Admin Panel</div>
     <div class="admin-login-sub">Thrive365 — Burgas</div>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -22,14 +22,14 @@
     {% endfor %}
     {% endwith %}
     <form method="POST" action="{{ url_for('admin') }}">
-      <div class="form-group" style="margin-bottom:16px;text-align:left;">
+      <div class="form-group" style="margin-bottom:14px;text-align:left;">
         <label class="form-label">Password</label>
         <input type="password" name="password" class="form-input" placeholder="Enter admin password" autofocus>
       </div>
-      <button type="submit" class="btn btn-primary btn-full">Enter Admin</button>
+      <button type="submit" class="btn btn-primary btn-full">Enter</button>
     </form>
-    <div style="margin-top:16px;">
-      <a href="{{ url_for('index') }}" style="font-size:13px;color:var(--text-muted);">← Back to app</a>
+    <div style="margin-top:14px;">
+      <a href="{{ url_for('index') }}" style="font-size:12px;color:var(--text-muted);">{{ icon('arrow-left', 12) }} Back to app</a>
     </div>
   </div>
 </div>
@@ -39,27 +39,27 @@
 
   <div class="admin-header">
     <div>
-      <div class="admin-title">🌿 Thrive365 Admin</div>
-      <div style="font-size:13px;color:var(--text-muted);">Burgas Eco Platform</div>
+      <div class="admin-title">{{ icon('leaf', 22) }} Thrive365 Admin</div>
+      <div class="admin-sub">Burgas sustainability platform</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <a href="{{ url_for('index') }}" class="btn btn-outline btn-sm">← App</a>
-      <a href="{{ url_for('admin_logout') }}" class="btn btn-danger btn-sm">Log Out</a>
+      <a href="{{ url_for('index') }}" class="btn btn-outline btn-sm">{{ icon('arrow-left', 12) }} App</a>
+      <a href="{{ url_for('admin_logout') }}" class="btn btn-danger btn-sm">{{ icon('log-out', 12) }} Log out</a>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-    <div class="admin-section" style="padding:16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--green);">{{ users|length }}</div>
-      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Users</div>
+  <div class="admin-stats-grid">
+    <div class="admin-stat">
+      <div class="admin-stat-value">{{ users|length }}</div>
+      <div class="admin-stat-label">Users</div>
     </div>
-    <div class="admin-section" style="padding:16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--green);">{{ templates|length }}</div>
-      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Task Templates</div>
+    <div class="admin-stat">
+      <div class="admin-stat-value">{{ templates|length }}</div>
+      <div class="admin-stat-label">Task templates</div>
     </div>
-    <div class="admin-section" style="padding:16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--green);">{{ completions|length }}</div>
-      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Completions</div>
+    <div class="admin-stat">
+      <div class="admin-stat-value">{{ completions|length }}</div>
+      <div class="admin-stat-label">Completions</div>
     </div>
   </div>
 
@@ -70,15 +70,16 @@
   {% endwith %}
 
   <div class="admin-tabs">
-    <button class="admin-tab active" data-tab="library" onclick="switchAdminTab('library')">📚 Library</button>
-    <button class="admin-tab" data-tab="users" onclick="switchAdminTab('users')">👥 Users</button>
-    <button class="admin-tab" data-tab="completions" onclick="switchAdminTab('completions')">✅ Completions</button>
+    <button class="admin-tab active" data-tab="library" onclick="switchAdminTab('library')">{{ icon('book', 14) }} Library</button>
+    <button class="admin-tab" data-tab="users" onclick="switchAdminTab('users')">{{ icon('users', 14) }} Users</button>
+    <button class="admin-tab" data-tab="completions" onclick="switchAdminTab('completions')">{{ icon('check-circle', 14) }} Completions</button>
+    <button class="admin-tab" data-tab="hazards" onclick="switchAdminTab('hazards')">{{ icon('alert', 14) }} Hazards</button>
   </div>
 
-  <!-- ── Library panel ── -->
+  <!-- Library -->
   <div id="panel-library" class="admin-panel">
-    <div class="admin-section" style="margin-bottom:16px;">
-      <div class="admin-section-header">➕ Add Task Template</div>
+    <div class="admin-section">
+      <div class="admin-section-header">{{ icon('plus', 14) }} Add task template</div>
       <form method="POST" action="{{ url_for('admin_add_template') }}">
         <div class="form-grid">
           <div class="form-group">
@@ -125,26 +126,26 @@
             <input name="neighborhood" class="form-input" placeholder="blank = anywhere">
           </div>
           <div class="form-group">
-            <label class="form-label">Location Name (optional)</label>
+            <label class="form-label">Location name (optional)</label>
             <input name="location_name" class="form-input" placeholder="e.g. Приморски парк">
           </div>
           <div class="form-group">
-            <label class="form-label">Latitude (optional)</label>
+            <label class="form-label">Latitude</label>
             <input name="lat" type="number" step="0.0001" class="form-input" placeholder="42.5048">
           </div>
           <div class="form-group">
-            <label class="form-label">Longitude (optional)</label>
+            <label class="form-label">Longitude</label>
             <input name="lng" type="number" step="0.0001" class="form-input" placeholder="27.4626">
           </div>
-          <div class="form-group" style="display:flex;align-items:flex-end;">
-            <button type="submit" class="btn btn-primary btn-full">Add Template</button>
+          <div class="form-group full" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">{{ icon('plus', 14) }} Add template</button>
           </div>
         </div>
       </form>
     </div>
 
     <div class="admin-section">
-      <div class="admin-section-header">Task Library ({{ templates|length }})</div>
+      <div class="admin-section-header">Task library ({{ templates|length }})</div>
       <div style="overflow-x:auto;">
         <table class="admin-table">
           <thead>
@@ -161,18 +162,18 @@
                 <div style="font-weight:600;font-size:13px;">{{ t.title_en }}</div>
                 <div style="font-size:11px;color:var(--text-muted);">{{ t.title_bg }}</div>
               </td>
-              <td><span style="background:var(--green-light);color:var(--green);font-weight:700;padding:2px 8px;border-radius:12px;font-size:11px;">{{ t.category }}</span></td>
+              <td><span class="admin-cat-chip">{{ t.category }}</span></td>
               <td style="font-size:12px;">{{ t.effort }}</td>
-              <td style="font-weight:700;">{{ t.points }}</td>
+              <td style="font-weight:600;">{{ t.points }}</td>
               <td style="font-size:11px;color:var(--text-muted);">{{ t.tags or '—' }}</td>
-              <td style="text-align:center;">{{ '✓' if t.active else '✗' }}</td>
+              <td style="text-align:center;">{% if t.active %}{{ icon('check', 14, 'text-green') }}{% else %}{{ icon('x', 14, 'text-muted') }}{% endif %}</td>
               <td style="white-space:nowrap;">
                 <form method="POST" action="{{ url_for('admin_toggle_template', template_id=t.id) }}" style="display:inline;">
-                  <button class="btn btn-secondary btn-sm" type="submit">{{ 'Disable' if t.active else 'Enable' }}</button>
+                  <button class="btn btn-outline btn-sm" type="submit">{{ 'Disable' if t.active else 'Enable' }}</button>
                 </form>
                 <form method="POST" action="{{ url_for('admin_delete_template', template_id=t.id) }}" style="display:inline;"
                       onsubmit="return confirm('Delete this template?');">
-                  <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                  <button class="btn btn-danger btn-sm" type="submit">{{ icon('trash', 12) }}</button>
                 </form>
               </td>
             </tr>
@@ -185,10 +186,10 @@
     </div>
   </div>
 
-  <!-- ── Users panel ── -->
+  <!-- Users -->
   <div id="panel-users" class="admin-panel hidden">
     <div class="admin-section">
-      <div class="admin-section-header">All Users ({{ users|length }})</div>
+      <div class="admin-section-header">All users ({{ users|length }})</div>
       <div style="overflow-x:auto;">
         <table class="admin-table">
           <thead>
@@ -203,16 +204,16 @@
                   {% if user.avatar %}
                   <img src="{{ user.avatar }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">
                   {% else %}
-                  <div style="width:28px;height:28px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--green-dark);">{{ user.name[0].upper() }}</div>
+                  <div class="avatar-placeholder" style="width:28px;height:28px;font-size:12px;">{{ user.name[0].upper() }}</div>
                   {% endif %}
                   <span style="font-weight:600;font-size:13px;">{{ user.name }}</span>
                 </div>
               </td>
               <td style="font-size:12px;color:var(--text-muted);">{{ user.email }}</td>
               <td style="font-size:12px;">{{ user.neighborhood or '—' }}</td>
-              <td><span style="font-weight:800;color:var(--green);">{{ user.points }}</span></td>
-              <td>🔥 {{ user.streak }}</td>
-              <td style="font-size:12px;color:var(--text-muted);">{{ user.created_at|fdate('%-d %b %Y') }}</td>
+              <td><span style="font-weight:700;color:var(--green-dark);">{{ user.points }}</span></td>
+              <td><span class="inline-icon-text">{{ icon('flame', 12) }} {{ user.streak }}</span></td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ user.created_at|fdate('%d %b %Y') }}</td>
             </tr>
             {% else %}
             <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No users yet.</td></tr>
@@ -223,10 +224,49 @@
     </div>
   </div>
 
-  <!-- ── Completions panel ── -->
+  <!-- Hazards -->
+  <div id="panel-hazards" class="admin-panel hidden">
+    <div class="admin-section">
+      <div class="admin-section-header">{{ icon('alert', 14) }} Reported hazards ({{ hazards|length }})</div>
+      <div style="overflow-x:auto;">
+        <table class="admin-table">
+          <thead>
+            <tr><th>ID</th><th>Type</th><th>Reporter</th><th>Description</th><th>Photo</th><th>Coords</th><th>Reported</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for h in hazards %}
+            <tr>
+              <td style="color:var(--text-muted);">#{{ h.id }}</td>
+              <td><span class="admin-cat-chip">{{ h.hazard_type }}</span></td>
+              <td style="font-size:12px;">{{ h.user.name if h.user else '—' }}</td>
+              <td style="font-size:12px;color:var(--text-secondary);max-width:240px;">{{ (h.description or '—')[:120] }}</td>
+              <td>
+                {% if h.photo_path %}
+                <img src="{{ url_for('static', filename=h.photo_path) }}" class="completion-photo" onerror="this.style.opacity=0.3" alt="photo">
+                {% else %}—{% endif %}
+              </td>
+              <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ '%.4f, %.4f'|format(h.lat, h.lng) }}</td>
+              <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ h.created_at|fdate('%d %b, %H:%M') }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('admin_hide_hazard', hazard_id=h.id) }}" style="display:inline;"
+                      onsubmit="return confirm('Hide this hazard?');">
+                  <button class="btn btn-danger btn-sm" type="submit">Hide</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px;">No hazards reported.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completions -->
   <div id="panel-completions" class="admin-panel hidden">
     <div class="admin-section">
-      <div class="admin-section-header">Recent Verified Completions ({{ completions|length }})</div>
+      <div class="admin-section-header">Recent verified completions ({{ completions|length }})</div>
       <div style="overflow-x:auto;">
         <table class="admin-table">
           <thead>
@@ -242,13 +282,13 @@
                 {% if c.photo_path %}
                 <img src="{{ url_for('static', filename=c.photo_path) }}" class="completion-photo" onerror="this.style.opacity=0.3" alt="photo">
                 {% else %}
-                <span style="color:var(--text-muted);font-size:12px;">No photo</span>
+                <span style="color:var(--text-muted);font-size:12px;">—</span>
                 {% endif %}
               </td>
               <td style="font-size:12px;color:var(--text-secondary);max-width:220px;">
                 {{ c.ai_feedback[:90] if c.ai_feedback else '—' }}{% if c.ai_feedback and c.ai_feedback|length > 90 %}…{% endif %}
               </td>
-              <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ c.completed_at|fdate('%-d %b, %H:%M') }}</td>
+              <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ c.completed_at|fdate('%d %b, %H:%M') }}</td>
             </tr>
             {% else %}
             <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">No completions yet.</td></tr>
@@ -259,7 +299,7 @@
     </div>
   </div>
 
-</div><!-- /admin-container -->
+</div>
 {% endif %}
 
 <div class="toast-container"></div>

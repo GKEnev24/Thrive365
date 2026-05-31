@@ -1,12 +1,13 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
-{% block title %}{{ 'Log In' if lang == 'en' else 'Вход' }}{% endblock %}
+{% block title %}{{ 'Log in' if lang == 'en' else 'Вход' }}{% endblock %}
 
 {% block content %}
 <div class="auth-page">
   <div class="auth-card">
-    <div class="auth-logo">🌿</div>
+    <div class="auth-logo">{{ icon('leaf', 24) }}</div>
     <h1 class="auth-title">{{ 'Welcome back' if lang == 'en' else 'Добре дошъл отново' }}</h1>
-    <p class="auth-sub">{{ 'Log in to continue your eco-journey.' if lang == 'en' else 'Влез, за да продължиш своето еко-пътуване.' }}</p>
+    <p class="auth-sub">{{ 'Log in to continue.' if lang == 'en' else 'Влез, за да продължиш.' }}</p>
 
     <form method="POST" action="{{ url_for('login') }}" class="auth-form">
       <div class="form-group">
@@ -20,7 +21,7 @@
                placeholder="{{ 'Your password' if lang == 'en' else 'Твоята парола' }}" autocomplete="current-password">
       </div>
       <button type="submit" class="btn btn-primary btn-full">
-        {{ 'Log In →' if lang == 'en' else 'Влез →' }}
+        {{ 'Log in' if lang == 'en' else 'Влез' }} {{ icon('arrow-right', 14) }}
       </button>
     </form>
 
@@ -31,13 +32,13 @@
 
     {% if google_enabled %}
     <div class="auth-divider"><span>{{ 'or' if lang == 'en' else 'или' }}</span></div>
-    <a href="{{ url_for('login_google') }}" class="btn-google">
+    <a href="{{ url_for('login_google') }}" class="btn-google" style="width:100%;justify-content:center;">
       {{ 'Continue with Google' if lang == 'en' else 'Влез с Google' }}
     </a>
     {% endif %}
 
     <div class="auth-demo">
-      <a href="{{ url_for('login_demo') }}">{{ '✨ Or try the demo' if lang == 'en' else '✨ Или пробвай демо' }}</a>
+      <a href="{{ url_for('login_demo') }}">{{ 'Or try the demo' if lang == 'en' else 'Или пробвай демо' }} →</a>
     </div>
   </div>
 </div>

@@ -1,24 +1,23 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
-{% block title %}{{ 'Prize Shop' if lang == 'en' else 'Магазин за награди' }}{% endblock %}
+{% block title %}{{ 'Rewards' if lang == 'en' else 'Награди' }}{% endblock %}
 
 {% block content %}
 
 <div class="page-header">
-  <h1 class="page-title">{{ 'Prize Shop' if lang == 'en' else 'Магазин за награди' }}</h1>
-  <p class="page-subtitle">{{ 'Redeem your points for real Burgas rewards' if lang == 'en' else 'Използвай точките си за истински награди от Бургас' }}</p>
+  <h1 class="page-title">{{ 'Rewards' if lang == 'en' else 'Награди' }}</h1>
+  <p class="page-subtitle">{{ 'Redeem your points for local Burgas partner offers.' if lang == 'en' else 'Замени точките си за оферти от местни партньори в Бургас.' }}</p>
 </div>
 
-<!-- Balance -->
 <div class="shop-balance">
   <div>
-    <div class="shop-balance-label">{{ 'YOUR BALANCE' if lang == 'en' else 'ТВОЯТ БАЛАНС' }}</div>
+    <div class="shop-balance-label">{{ 'Your balance' if lang == 'en' else 'Твоят баланс' }}</div>
     <div class="shop-balance-points">{{ current_user.points }}</div>
-    <div style="font-size:12px;opacity:0.8;">{{ 'points available' if lang == 'en' else 'точки налични' }}</div>
+    <div class="shop-balance-hint">{{ 'points available' if lang == 'en' else 'налични точки' }}</div>
   </div>
-  <div class="shop-balance-icon">⚡</div>
+  <div class="shop-balance-icon">{{ icon('wallet', 20) }}</div>
 </div>
 
-<!-- Prizes grid -->
 <div class="prizes-grid">
   {% for prize in prizes %}
   {% set already = prize.id in redeemed_ids %}
@@ -26,58 +25,57 @@
   {% set in_stock = prize.stock > 0 %}
 
   <div class="prize-card {% if not in_stock %}out-of-stock{% endif %}" data-prize-id="{{ prize.id }}">
-    <div class="prize-emoji">{{ prize.image }}</div>
+    <div class="prize-icon-wrap">{{ icon(prize.image or 'gift', 22) }}</div>
     <div class="prize-title">{{ prize.title_en if lang == 'en' else prize.title_bg }}</div>
     <div class="prize-desc">{{ prize.description_en if lang == 'en' else prize.description_bg }}</div>
-    <div class="prize-cost">⚡ {{ prize.points_cost }} {{ 'pts' if lang == 'en' else 'т.' }}</div>
+    <div class="prize-cost">{{ icon('zap', 12) }} {{ prize.points_cost }} {{ 'pts' if lang == 'en' else 'т.' }}</div>
     <div class="prize-stock">
       {% if in_stock %}
         {{ prize.stock }} {{ 'left' if lang == 'en' else 'остават' }}
       {% else %}
-        {{ '⚠️ Out of stock' if lang == 'en' else '⚠️ Изчерпано' }}
+        {{ 'Out of stock' if lang == 'en' else 'Изчерпано' }}
       {% endif %}
     </div>
 
     {% if already %}
-    <button class="prize-redeemed-btn">✓ {{ 'Redeemed' if lang == 'en' else 'Използвано' }}</button>
+    <button class="prize-redeemed-btn">{{ icon('check', 12) }} {{ 'Redeemed' if lang == 'en' else 'Използвано' }}</button>
     {% elif not in_stock %}
-    <button class="prize-redeem-btn" disabled>{{ 'Out of Stock' if lang == 'en' else 'Изчерпано' }}</button>
+    <button class="prize-redeem-btn" disabled>{{ 'Out of stock' if lang == 'en' else 'Изчерпано' }}</button>
     {% elif not can_afford %}
     <button class="prize-redeem-btn" disabled
-            title="{{ 'Need %d more points'|format(prize.points_cost - current_user.points) if lang == 'en' else 'Нужни са %d повече точки'|format(prize.points_cost - current_user.points) }}">
-      🔒 {{ prize.points_cost - current_user.points }} {{ 'more pts' if lang == 'en' else 'т. още' }}
+            title="{{ 'Need %d more points'|format(prize.points_cost - current_user.points) if lang == 'en' else 'Нужни са още %d точки'|format(prize.points_cost - current_user.points) }}">
+      {{ icon('lock', 11) }} {{ prize.points_cost - current_user.points }} {{ 'more pts' if lang == 'en' else 'т. още' }}
     </button>
     {% else %}
     <button class="prize-redeem-btn"
             onclick="redeemPrize({{ prize.id }}, '{{ (prize.title_en if lang == 'en' else prize.title_bg)|replace("'","\\'") }}')">
-      {{ 'Redeem →' if lang == 'en' else 'Вземи →' }}
+      {{ 'Redeem' if lang == 'en' else 'Вземи' }} {{ icon('arrow-right', 12) }}
     </button>
     {% endif %}
   </div>
   {% endfor %}
 </div>
 
-<!-- Redemption code modal -->
 <div id="code-modal" class="modal-overlay">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">🎉 {{ 'Prize Redeemed!' if lang == 'en' else 'Наградата е взета!' }}</div>
+      <div class="modal-title">{{ 'Reward redeemed' if lang == 'en' else 'Наградата е взета' }}</div>
       <div class="modal-subtitle" id="code-prize-title"></div>
     </div>
     <div class="modal-body">
-      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:8px;">
-        {{ 'Show this code at the partner location to claim your reward:' if lang == 'en' else 'Покажи този код на партньорското място, за да получиш наградата си:' }}
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
+        {{ 'Show this code at the partner location to claim your reward:' if lang == 'en' else 'Покажи този код при партньора, за да получиш наградата си:' }}
       </p>
       <div class="code-display">
         <div class="code-value" id="code-value">T365-XXXXXXXX</div>
-        <div class="code-hint">{{ 'Valid for 30 days · Single use' if lang == 'en' else 'Важи 30 дни · Еднократна употреба' }}</div>
+        <div class="code-hint">{{ 'Valid 30 days · Single use' if lang == 'en' else 'Важи 30 дни · Еднократно' }}</div>
       </div>
-      <button class="btn btn-secondary btn-full mb-8" onclick="copyCode()">
-        📋 {{ 'Copy Code' if lang == 'en' else 'Копирай кода' }}
+      <button class="btn btn-outline btn-full mb-8" onclick="copyCode()">
+        {{ icon('copy', 14) }} {{ 'Copy code' if lang == 'en' else 'Копирай кода' }}
       </button>
       <button class="btn btn-primary btn-full" onclick="closeModal('code-modal')">
-        {{ 'Done!' if lang == 'en' else 'Готово!' }}
+        {{ 'Done' if lang == 'en' else 'Готово' }}
       </button>
     </div>
   </div>

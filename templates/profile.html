@@ -1,9 +1,9 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
 {% block title %}{{ 'Profile' if lang == 'en' else 'Профил' }}{% endblock %}
 
 {% block content %}
 
-<!-- Profile header -->
 <div class="profile-header">
   {% if current_user.avatar %}
   <img src="{{ current_user.avatar }}" class="profile-avatar" alt="{{ current_user.name }}">
@@ -12,36 +12,30 @@
   {% endif %}
   <div class="profile-name">{{ current_user.name }}</div>
   <div class="profile-email">{{ current_user.email }}</div>
-  <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-    <span style="background:rgba(255,255,255,0.2);color:white;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;">
-      🏅 {{ 'Rank' if lang == 'en' else 'Позиция' }} #{{ user_rank }}
-    </span>
-    <span style="background:rgba(255,255,255,0.2);color:white;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;">
-      📅 {{ 'Since' if lang == 'en' else 'От' }} {{ current_user.created_at.strftime('%b %Y') }}
-    </span>
+  <div class="profile-meta">
+    <span class="profile-meta-chip">{{ icon('trophy', 12) }} {{ 'Rank' if lang == 'en' else 'Позиция' }} #{{ user_rank }}</span>
+    <span class="profile-meta-chip">{{ icon('calendar', 12) }} {{ 'Since' if lang == 'en' else 'От' }} {{ current_user.created_at.strftime('%b %Y') }}</span>
   </div>
 </div>
 
-<!-- Stats -->
 <div class="profile-stats">
   <div class="stat-card">
-    <div class="stat-value">{{ current_user.points }}</div>
+    <div class="stat-value">{{ icon('zap', 16) }} {{ current_user.points }}</div>
     <div class="stat-label">{{ 'Points' if lang == 'en' else 'Точки' }}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">🔥{{ current_user.streak }}</div>
-    <div class="stat-label">{{ 'Day Streak' if lang == 'en' else 'Дн. Серия' }}</div>
+    <div class="stat-value">{{ icon('flame', 16) }} {{ current_user.streak }}</div>
+    <div class="stat-label">{{ 'Day streak' if lang == 'en' else 'Дн. серия' }}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">{{ tasks_count }}</div>
-    <div class="stat-label">{{ 'Tasks Done' if lang == 'en' else 'Задачи' }}</div>
+    <div class="stat-value">{{ icon('check-circle', 16) }} {{ tasks_count }}</div>
+    <div class="stat-label">{{ 'Tasks done' if lang == 'en' else 'Задачи' }}</div>
   </div>
 </div>
 
-<!-- Badges -->
 <div class="section-header">
   <div class="section-heading">{{ 'Badges' if lang == 'en' else 'Значки' }}</div>
-  <span style="font-size:13px;color:var(--text-muted);">{{ earned_ids|length }} / {{ all_badges|length }}</span>
+  <span style="font-size:12px;color:var(--text-muted);font-weight:500;">{{ earned_ids|length }} / {{ all_badges|length }}</span>
 </div>
 
 <div class="badges-grid">
@@ -50,40 +44,34 @@
   <div class="badge-item">
     <div class="badge-icon-wrap {% if not earned %}locked{% endif %}"
          title="{{ badge.description_en if lang == 'en' else badge.description_bg }}">
-      {{ badge.icon }}
+      {{ icon(badge.icon, 22) }}
     </div>
-    <div class="badge-name">{{ badge.name[:8] }}</div>
+    <div class="badge-name">{{ badge.name[:10] }}</div>
   </div>
   {% endfor %}
 </div>
 
-<!-- Badge legend -->
-<div style="padding:0 16px 24px;">
-  <div style="background:var(--bg);border-radius:var(--radius);padding:16px;">
-    <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">
-      {{ 'Badge Progress' if lang == 'en' else 'Прогрес към значки' }}
-    </div>
-    {% for badge in all_badges %}
-    {% set earned = badge.id in earned_ids %}
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:18px;{% if not earned %}filter:grayscale(1);opacity:0.5;{% endif %}">{{ badge.icon }}</span>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;{% if not earned %}color:var(--text-muted);{% endif %}">{{ badge.name }}</div>
-        <div style="font-size:11px;color:var(--text-muted);">{{ badge.description_en if lang == 'en' else badge.description_bg }}</div>
-      </div>
-      {% if earned %}
-      <span style="color:var(--green);font-size:14px;">✓</span>
-      {% else %}
-      <span style="color:var(--border);font-size:14px;">○</span>
-      {% endif %}
-    </div>
-    {% endfor %}
+<div class="badge-list-card">
+  <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
+    {{ 'Badge progress' if lang == 'en' else 'Прогрес към значки' }}
   </div>
+  {% for badge in all_badges %}
+  {% set earned = badge.id in earned_ids %}
+  <div class="badge-list-row">
+    <div class="badge-list-icon {% if not earned %}locked{% endif %}">{{ icon(badge.icon, 16) }}</div>
+    <div class="badge-list-info">
+      <div class="badge-list-name {% if not earned %}locked{% endif %}">{{ badge.name }}</div>
+      <div class="badge-list-desc">{{ badge.description_en if lang == 'en' else badge.description_bg }}</div>
+    </div>
+    <div class="badge-list-check {% if not earned %}locked{% endif %}">
+      {% if earned %}{{ icon('check', 16) }}{% else %}{{ icon('lock', 14) }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
 
-<!-- Recent Activity -->
 <div class="section-header">
-  <div class="section-heading">{{ 'Recent Activity' if lang == 'en' else 'Последна активност' }}</div>
+  <div class="section-heading">{{ 'Recent activity' if lang == 'en' else 'Последна активност' }}</div>
 </div>
 
 <div class="activity-list">
@@ -92,36 +80,31 @@
     {% if completion.photo_path %}
     <img src="{{ url_for('static', filename=completion.photo_path) }}"
          class="activity-thumb" alt="task photo"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-    <div class="activity-thumb" style="display:none;">🌿</div>
+         onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+    <div class="activity-thumb" style="display:none;">{{ icon('image', 18) }}</div>
     {% else %}
-    <div class="activity-thumb">🌿</div>
+    <div class="activity-thumb">{{ icon('leaf', 18) }}</div>
     {% endif %}
     <div class="activity-info">
-      <div class="activity-title">
-        {{ completion.title_en if lang == 'en' else completion.title_bg }}
-      </div>
-      <div class="activity-date">
-        {{ completion.completed_at|fdate('%-d %b %Y, %H:%M') }}
-      </div>
+      <div class="activity-title">{{ completion.title_en if lang == 'en' else completion.title_bg }}</div>
+      <div class="activity-date">{{ completion.completed_at|fdate('%d %b %Y, %H:%M') }}</div>
     </div>
     <div class="activity-points">+{{ completion.points }}</div>
   </div>
   {% endfor %}
 
   {% if not completions %}
-  <div class="empty-state" style="padding:32px 16px;">
-    <div class="empty-state-icon">🌱</div>
+  <div class="empty-state" style="padding:24px 16px;">
+    <div class="empty-state-icon-wrap">{{ icon('leaf', 22) }}</div>
     <div class="empty-state-text">{{ 'No completed tasks yet' if lang == 'en' else 'Все още няма изпълнени задачи' }}</div>
-    <div class="empty-state-sub">{{ 'Complete your first eco-task to start your journey!' if lang == 'en' else 'Изпълни първата си еко-задача, за да започнеш пътуването си!' }}</div>
+    <div class="empty-state-sub">{{ 'Complete your first task to get started.' if lang == 'en' else 'Изпълни първата си задача, за да започнеш.' }}</div>
   </div>
   {% endif %}
 </div>
 
-<!-- Logout -->
 <div style="padding:8px 16px 24px;">
   <a href="{{ url_for('logout') }}" class="btn btn-outline btn-full">
-    {{ '← Log Out' if lang == 'en' else '← Излез' }}
+    {{ icon('log-out', 14) }} {{ 'Log out' if lang == 'en' else 'Излез' }}
   </a>
 </div>
 

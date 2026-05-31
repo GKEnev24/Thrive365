@@ -42,7 +42,9 @@
       "Bash(python -c \"import llama_cpp; print\\('llama_cpp', llama_cpp.__version__, 'imports OK'\\)\")",
       "Bash(python -c \"from llama_cpp.llama_chat_format import Qwen25VLChatHandler; print\\('Qwen25VLChatHandler available'\\)\")",
       "Bash(HF_HUB_DISABLE_XET=1 python -c \"from huggingface_hub import hf_hub_download; print\\(hf_hub_download\\('Qwen/Qwen2.5-3B-Instruct-GGUF','qwen2.5-3b-instruct-q4_k_m.gguf'\\)\\)\")",
-      "Bash(python -m py_compile F:/Thrive365/app.py)"
+      "Bash(python -m py_compile F:/Thrive365/app.py)",
+      "PowerShell(Get-Command python, py, python3, python3.12, python3.13, python3.14 -ErrorAction SilentlyContinue)",
+      "PowerShell($py = \"$env:LOCALAPPDATA\\\\Programs\\\\Python\\\\Python312\\\\python.exe\"; if \\(-not \\(Test-Path $py\\)\\) { $py = \\(Get-ChildItem \"C:\\\\Users\\\\Antonio Ivanov\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; if \\(-not $py\\) { $py = \\(Get-ChildItem \"C:\\\\Program Files\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; & $py --version; & $py -m venv .venv)"
     ]
   }
 }

@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
 {% block title %}{{ 'Map' if lang == 'en' else 'Карта' }}{% endblock %}
 
@@ -8,191 +9,659 @@
 {% endblock %}
 
 {% block content %}
-<div class="map-container">
+<div class="map-page">
+
+  <!-- ── Directions sheet (top) ────────────────────────────────────────────── -->
+  <div class="dir-sheet" id="dir-sheet">
+    <div class="dir-sheet-header" onclick="toggleSheet()">
+      <div class="dir-sheet-title">
+        {{ icon('map', 16) }}
+        <span>{{ 'Plan a route' if lang == 'en' else 'Планирай маршрут' }}</span>
+      </div>
+      <button class="dir-sheet-chevron" id="dir-sheet-chevron" aria-label="Toggle">
+        {{ icon('arrow-right', 16) }}
+      </button>
+    </div>
+
+    <div class="dir-sheet-body" id="dir-sheet-body">
+
+      <!-- A / B inputs -->
+      <div class="dir-points">
+        <div class="dir-rail">
+          <span class="dir-rail-dot dir-rail-a"></span>
+          <span class="dir-rail-line"></span>
+          <span class="dir-rail-dot dir-rail-b"></span>
+        </div>
+        <div class="dir-inputs">
+          <div class="dir-input-row" id="row-from">
+            <input type="text" id="from-input" class="dir-input" autocomplete="off"
+                   placeholder="{{ 'From — your location' if lang == 'en' else 'От — твоето местоположение' }}">
+            <button class="dir-input-btn" id="from-gps-btn" type="button" title="{{ 'Use my location' if lang == 'en' else 'Използвай моето местоположение' }}">
+              {{ icon('map-pin', 14) }}
+            </button>
+            <div class="dir-suggest" id="from-suggest"></div>
+          </div>
+          <button class="dir-swap" type="button" id="swap-btn" title="{{ 'Swap' if lang == 'en' else 'Размени' }}" aria-label="Swap">
+            {{ icon('arrow-right', 14) }}
+          </button>
+          <div class="dir-input-row" id="row-to">
+            <input type="text" id="to-input" class="dir-input" autocomplete="off"
+                   placeholder="{{ 'To — address or tap on map' if lang == 'en' else 'До — адрес или докосни картата' }}">
+            <button class="dir-input-btn" id="to-tap-btn" type="button" title="{{ 'Tap on map to set' if lang == 'en' else 'Докосни картата' }}">
+              {{ icon('map-pin', 14) }}
+            </button>
+            <div class="dir-suggest" id="to-suggest"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode chips -->
+      <div class="chip-row" role="tablist" aria-label="Mode">
+        <button class="chip mode-chip active" data-mode="walk">{{ icon('user', 13) }} {{ 'Walk' if lang == 'en' else 'Пеша' }}</button>
+        <button class="chip mode-chip" data-mode="bike">{{ icon('bike', 13) }} {{ 'Bike' if lang == 'en' else 'Колело' }}</button>
+        <button class="chip mode-chip" data-mode="drive">{{ icon('bus', 13) }} {{ 'Drive' if lang == 'en' else 'Кола' }}</button>
+        <button class="chip mode-chip disabled" data-mode="transit" disabled title="{{ 'Coming soon' if lang == 'en' else 'Скоро' }}">
+          {{ icon('bus', 13) }} {{ 'Transit' if lang == 'en' else 'Транспорт' }}
+        </button>
+      </div>
+
+      <!-- Preference chips -->
+      <div class="chip-row" role="tablist" aria-label="Preference">
+        <button class="chip pref-chip active" data-pref="fast">{{ icon('zap', 12) }} {{ 'Fastest' if lang == 'en' else 'Най-бързо' }}</button>
+        <button class="chip pref-chip" data-pref="safe">{{ icon('shield', 12) }} {{ 'Safest' if lang == 'en' else 'Най-безопасно' }}</button>
+        <button class="chip pref-chip" data-pref="scenic">{{ icon('tree', 12) }} {{ 'Scenic' if lang == 'en' else 'Живописно' }}</button>
+      </div>
+
+      <!-- Via tasks toggle -->
+      <label class="toggle-row">
+        <input type="checkbox" id="via-tasks">
+        <span class="toggle-track"><span class="toggle-knob"></span></span>
+        <span class="toggle-label">
+          {{ icon('sparkles', 13) }}
+          {{ 'Route through my pending tasks' if lang == 'en' else 'Премини през днешните задачи' }}
+        </span>
+      </label>
+
+      <button class="btn btn-primary btn-full dir-go-btn" id="plan-btn" type="button">
+        {{ 'Plan route' if lang == 'en' else 'Планирай' }} {{ icon('arrow-right', 14) }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Map ──────────────────────────────────────────────────────────────── -->
   <div id="map"></div>
 
-  <!-- Layer controls -->
+  <!-- ── Floating layer toggles ───────────────────────────────────────────── -->
   <div class="map-controls">
-    <button class="map-layer-btn active" id="btn-routes" onclick="toggleLayer('routes')">
-      🚶 {{ 'Routes' if lang == 'en' else 'Маршрути' }}
+    <button class="map-layer-btn active" id="btn-nature" onclick="toggleLayer('nature')" title="Nature">
+      {{ icon('tree', 12) }}
     </button>
-    <button class="map-layer-btn active" id="btn-nature" onclick="toggleLayer('nature')">
-      🌳 {{ 'Nature' if lang == 'en' else 'Природа' }}
+    <button class="map-layer-btn active" id="btn-tasks" onclick="toggleLayer('tasks')" title="My tasks">
+      {{ icon('check-circle', 12) }}
     </button>
-    <button class="map-layer-btn active" id="btn-tasks" onclick="toggleLayer('tasks')">
-      📍 {{ 'Tasks' if lang == 'en' else 'Задачи' }}
+    <button class="map-layer-btn active" id="btn-hazards" onclick="toggleLayer('hazards')" title="Hazards">
+      {{ icon('alert', 12) }}
     </button>
-    <button class="map-layer-btn active" id="btn-heatmap" onclick="toggleLayer('heatmap')">
-      🔥 {{ 'Activity' if lang == 'en' else 'Активност' }}
+    <button class="map-layer-btn" id="btn-heatmap" onclick="toggleLayer('heatmap')" title="Activity heatmap">
+      {{ icon('flame', 12) }}
     </button>
   </div>
 
-  <!-- Info panel (appears on marker click) -->
-  <div class="map-info-panel hidden" id="map-info-panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div>
-        <div class="map-info-title" id="info-title">—</div>
-        <div class="map-info-location" id="info-location">—</div>
-        <div class="map-info-points hidden" id="info-points">—</div>
+  <!-- ── Nearest mini-panel (auto-shown when GPS available) ───────────────── -->
+  <div class="nearest-panel hidden" id="nearest-panel">
+    <div class="nearest-title">{{ icon('map-pin', 12) }} {{ 'Near you' if lang == 'en' else 'Близо до теб' }}</div>
+    <div id="nearest-content"></div>
+  </div>
+
+  <!-- ── Route results drawer (bottom) ────────────────────────────────────── -->
+  <div class="route-drawer hidden" id="route-drawer">
+    <div class="route-summary">
+      <div class="route-summary-main">
+        <div class="route-distance" id="route-distance">—</div>
+        <div class="route-duration" id="route-duration">—</div>
       </div>
-      <button onclick="document.getElementById('map-info-panel').classList.add('hidden')"
-              style="font-size:18px;color:var(--text-muted);padding:4px 8px;">✕</button>
+      <div class="route-safety">
+        <div class="safety-pill" id="safety-pill">
+          {{ icon('shield', 12) }} <span id="safety-text">—</span>
+        </div>
+        <button class="map-close-btn" onclick="closeRouteDrawer()" aria-label="Close">{{ icon('x', 16) }}</button>
+      </div>
+    </div>
+    <div class="route-warnings hidden" id="route-warnings"></div>
+    <div class="route-actions">
+      <button class="btn btn-primary btn-sm" id="track-start-btn" type="button">
+        {{ icon('map-pin', 13) }} <span id="track-btn-label">{{ 'Start & track' if lang == 'en' else 'Започни и проследи' }}</span>
+      </button>
+      <button class="btn btn-outline btn-sm" id="steps-toggle-btn" type="button">
+        {{ icon('list', 13) }} {{ 'Steps' if lang == 'en' else 'Стъпки' }}
+      </button>
+    </div>
+    <div class="route-steps hidden" id="route-steps"></div>
+  </div>
+
+</div>
+
+<!-- ── Hazard report modal ───────────────────────────────────────────────── -->
+<div id="hazard-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">{{ 'Report a hazard' if lang == 'en' else 'Докладвай опасност' }}</div>
+      <div class="modal-subtitle">{{ 'Help others avoid unsafe spots in Burgas.' if lang == 'en' else 'Помогни на другите да избягват опасни места в Бургас.' }}</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="hazard-lat">
+      <input type="hidden" id="hazard-lng">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">{{ 'Type' if lang == 'en' else 'Тип' }}</label>
+        <div class="chip-row" id="hazard-type-row">
+          <button class="chip hazard-type-chip active" data-htype="lighting" type="button">{{ icon('bulb', 12) }} {{ 'No lighting' if lang == 'en' else 'Без осветление' }}</button>
+          <button class="chip hazard-type-chip" data-htype="sidewalk" type="button">{{ icon('alert', 12) }} {{ 'Broken sidewalk' if lang == 'en' else 'Тротоар' }}</button>
+          <button class="chip hazard-type-chip" data-htype="traffic" type="button">{{ icon('bus', 12) }} {{ 'Heavy traffic' if lang == 'en' else 'Натоварен трафик' }}</button>
+          <button class="chip hazard-type-chip" data-htype="flooding" type="button">{{ icon('droplet', 12) }} {{ 'Flooding' if lang == 'en' else 'Наводнение' }}</button>
+          <button class="chip hazard-type-chip" data-htype="other" type="button">{{ 'Other' if lang == 'en' else 'Друго' }}</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">{{ 'Description' if lang == 'en' else 'Описание' }}</label>
+        <textarea id="hazard-desc" class="form-input" rows="3" placeholder="{{ 'Briefly describe the issue (optional)' if lang == 'en' else 'Кратко опиши (опционално)' }}"></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" id="hazard-submit" type="button">
+        {{ 'Submit report' if lang == 'en' else 'Изпрати' }}
+      </button>
     </div>
   </div>
 </div>
+
+<!-- ── Finish-tracking modal (photo + award) ─────────────────────────────── -->
+<div id="track-finish-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">{{ 'Finish & claim points' if lang == 'en' else 'Завърши и вземи точки' }}</div>
+      <div class="modal-subtitle" id="track-summary">—</div>
+    </div>
+    <div class="modal-body">
+      <div class="photo-upload-area" id="track-upload-area">
+        <input type="file" id="track-photo" accept="image/*" capture="environment">
+        <div class="upload-icon-wrap">{{ icon('camera', 22) }}</div>
+        <div class="upload-text">{{ 'Add a finish photo (optional)' if lang == 'en' else 'Добави снимка от финала (опционално)' }}</div>
+        <div class="upload-hint">{{ 'Helps verify the trip' if lang == 'en' else 'Помага за потвърждение' }}</div>
+      </div>
+      <button class="btn btn-primary btn-full" id="track-claim-btn" type="button" style="margin-top:14px;">
+        {{ 'Claim points' if lang == 'en' else 'Вземи точки' }} {{ icon('zap', 14) }}
+      </button>
+      <button class="btn btn-ghost btn-full" type="button" onclick="closeModal('track-finish-modal')" style="margin-top:6px;">
+        {{ 'Cancel' if lang == 'en' else 'Откажи' }}
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 const LANG = "{{ lang }}";
+const T = (en, bg) => LANG === 'bg' ? bg : en;
 
-// ── Map init ─────────────────────────────────────────────────────────────────
+// ─── Map init ────────────────────────────────────────────────────────────
 const map = L.map('map', {
-  center: [42.5048, 27.4626],
-  zoom: 13,
-  zoomControl: false,
-  attributionControl: false
+  center: [42.5048, 27.4626], zoom: 13,
+  zoomControl: false, attributionControl: false,
 });
-
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap'
+  maxZoom: 19, attribution: '© OpenStreetMap'
 }).addTo(map);
-
 L.control.attribution({ position: 'bottomleft', prefix: '' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-// ── Walking routes ───────────────────────────────────────────────────────────
-const walkingRoutes = [
-  // Sea Garden Promenade
-  [[42.4835,27.4808],[42.4862,27.4778],[42.4890,27.4757],[42.4920,27.4742],
-   [42.4947,27.4731],[42.4975,27.4720],[42.5005,27.4715],[42.5025,27.4712]],
-  // Ezeroto lakeside loop
-  [[42.5048,27.4580],[42.5065,27.4555],[42.5085,27.4565],[42.5098,27.4590],
-   [42.5095,27.4618],[42.5080,27.4638],[42.5062,27.4648],[42.5045,27.4640],
-   [42.5030,27.4620],[42.5028,27.4598],[42.5038,27.4578],[42.5048,27.4580]],
-  // City centre pedestrian zone
-  [[42.5055,27.4660],[42.5055,27.4640],[42.5048,27.4626],[42.5040,27.4610],
-   [42.5030,27.4600],[42.5020,27.4595]],
-  // Coastal boulevard north
-  [[42.5025,27.4712],[42.5050,27.4708],[42.5075,27.4702],[42.5100,27.4695]],
-];
-
-const routeLayer = L.layerGroup();
-walkingRoutes.forEach(coords => {
-  L.polyline(coords, {
-    color: '#1D9E75',
-    weight: 4,
-    opacity: 0.75,
-    lineJoin: 'round',
-    lineCap: 'round'
-  }).addTo(routeLayer);
+// ─── Custom marker factories ─────────────────────────────────────────────
+const dot = (bg, size = 16, ring = '#fff') => L.divIcon({
+  html: `<div style="background:${bg};border:2.5px solid ${ring};border-radius:50%;width:${size}px;height:${size}px;box-shadow:0 2px 8px rgba(16,24,40,0.35);"></div>`,
+  className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+});
+const labelPin = (label, bg) => L.divIcon({
+  html: `<div style="background:${bg};color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;border:2px solid #fff;box-shadow:0 2px 8px rgba(16,24,40,0.3);">${label}</div>`,
+  className: '', iconSize: [28, 22], iconAnchor: [14, 11],
+});
+const hazardPin = L.divIcon({
+  html: `<div style="background:#B42318;border:2px solid #fff;border-radius:6px;width:14px;height:14px;transform:rotate(45deg);box-shadow:0 2px 6px rgba(180,35,24,0.5);"></div>`,
+  className: '', iconSize: [14, 14], iconAnchor: [7, 7],
 });
 
-// ── Nature spots ─────────────────────────────────────────────────────────────
+// ─── Static layers (nature spots, my tasks today, heatmap) ───────────────
 const natureSpots = [
-  { name: 'Приморски парк', name_en: 'Primorski Park (Sea Garden)', lat: 42.4947, lng: 27.4731, icon: '🌳' },
-  { name: 'Атанасовско езеро', name_en: 'Atanasovsko Ezero (Nature Reserve)', lat: 42.5576, lng: 27.5011, icon: '🦩' },
-  { name: 'Езерата', name_en: 'Ezerata (The Lakes)', lat: 42.5150, lng: 27.4700, icon: '🦆' },
-  { name: 'Морска градина', name_en: 'Sea Garden Beach', lat: 42.4880, lng: 27.4790, icon: '🌊' },
+  { en: 'Primorski Park',    bg: 'Приморски парк',    lat: 42.4947, lng: 27.4731 },
+  { en: 'Atanasovsko Ezero', bg: 'Атанасовско езеро', lat: 42.5576, lng: 27.5011 },
+  { en: 'Ezerata Lakes',     bg: 'Езерата',           lat: 42.5150, lng: 27.4700 },
+  { en: 'Sea Garden Beach',  bg: 'Морска градина',    lat: 42.4880, lng: 27.4790 },
 ];
-
-const natureIcon = L.divIcon({
-  html: '<div style="background:#2F855A;border:3px solid white;border-radius:50%;width:14px;height:14px;box-shadow:0 2px 8px rgba(0,0,0,0.25);"></div>',
-  className: '',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7]
-});
-
 const natureLayer = L.layerGroup();
-natureSpots.forEach(spot => {
-  const marker = L.marker([spot.lat, spot.lng], { icon: natureIcon }).addTo(natureLayer);
-  marker.on('click', () => showInfo(
-    spot.icon + ' ' + (LANG === 'en' ? spot.name_en : spot.name),
-    spot.name,
-    null
-  ));
-});
-
-// ── Task pins ────────────────────────────────────────────────────────────────
-const taskIcon = L.divIcon({
-  html: '<div style="background:#1D9E75;border:3px solid white;border-radius:50%;width:16px;height:16px;box-shadow:0 2px 10px rgba(29,158,117,0.5);"></div>',
-  className: '',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
+natureSpots.forEach(s => {
+  L.marker([s.lat, s.lng], { icon: dot('#246340', 14) })
+    .bindTooltip(LANG === 'en' ? s.en : s.bg, { direction: 'top' })
+    .addTo(natureLayer);
 });
 
 const taskLayer = L.layerGroup();
+const hazardLayer = L.layerGroup();
+let heatLayer = null;
 
-async function loadTaskPins() {
+async function loadStatic() {
   try {
-    const resp = await fetch('/api/map-data');
-    const data = await resp.json();
-
-    data.tasks.forEach(t => {
-      const marker = L.marker([t.lat, t.lng], { icon: taskIcon }).addTo(taskLayer);
-      marker.on('click', () => showInfo(t.title, '📍 ' + t.location, t.points));
+    const r = await fetch('/api/map-data');
+    const d = await r.json();
+    d.tasks.forEach(t => {
+      L.marker([t.lat, t.lng], { icon: dot('#2E7D52', 16) })
+        .bindTooltip(`${t.title} · ${t.points} ${T('pts','т.')}`, { direction: 'top' })
+        .addTo(taskLayer);
     });
-
-    if (data.heatmap && data.heatmap.length > 0) {
-      window.heatLayer = L.heatLayer(data.heatmap, {
-        radius: 28,
-        blur: 20,
-        maxZoom: 17,
-        gradient: { 0.2: '#a7f3d0', 0.5: '#1D9E75', 0.8: '#065f46' }
+    if (d.heatmap && d.heatmap.length) {
+      heatLayer = L.heatLayer(d.heatmap, {
+        radius: 26, blur: 22, maxZoom: 17,
+        gradient: { 0.2: '#B5DBC1', 0.5: '#2E7D52', 0.8: '#143523' },
       });
-      if (document.getElementById('btn-heatmap').classList.contains('active')) {
-        window.heatLayer.addTo(map);
-      }
     }
-  } catch (e) {
-    console.error('Map data load error:', e);
-  }
+  } catch (e) { console.error(e); }
 }
 
-// ── Info panel ───────────────────────────────────────────────────────────────
-function showInfo(title, location, points) {
-  document.getElementById('info-title').textContent = title;
-  document.getElementById('info-location').textContent = location;
-  const ptsEl = document.getElementById('info-points');
-  if (points !== null) {
-    ptsEl.textContent = `⚡ ${points} ${LANG === 'en' ? 'pts' : 'т.'}`;
-    ptsEl.classList.remove('hidden');
-  } else {
-    ptsEl.classList.add('hidden');
-  }
-  document.getElementById('map-info-panel').classList.remove('hidden');
+async function loadHazards() {
+  try {
+    const r = await fetch('/api/hazards');
+    const d = await r.json();
+    hazardLayer.clearLayers();
+    if (!d.ok) return;
+    d.hazards.forEach(h => {
+      L.marker([h.lat, h.lng], { icon: hazardPin })
+        .bindTooltip(`${h.type}${h.description ? ' — ' + h.description : ''}`,
+                     { direction: 'top' })
+        .addTo(hazardLayer);
+    });
+  } catch (e) { console.error(e); }
 }
 
-// ── Layer toggles ────────────────────────────────────────────────────────────
-const layerMap = {
-  routes: routeLayer,
-  nature: natureLayer,
-  tasks: taskLayer,
-};
-const layerState = { routes: true, nature: true, tasks: true, heatmap: true };
-
-function toggleLayer(name) {
-  const btn = document.getElementById(`btn-${name}`);
-  layerState[name] = !layerState[name];
-  btn.classList.toggle('active', layerState[name]);
-
-  if (name === 'heatmap') {
-    if (window.heatLayer) {
-      layerState[name] ? window.heatLayer.addTo(map) : map.removeLayer(window.heatLayer);
-    }
-    return;
-  }
-
-  const layer = layerMap[name];
-  if (!layer) return;
-  layerState[name] ? layer.addTo(map) : map.removeLayer(layer);
-}
-
-// ── Add layers to map ────────────────────────────────────────────────────────
-routeLayer.addTo(map);
 natureLayer.addTo(map);
 taskLayer.addTo(map);
-loadTaskPins();
+hazardLayer.addTo(map);
+loadStatic();
+loadHazards();
+
+const layerState = { nature: true, tasks: true, hazards: true, heatmap: false };
+function toggleLayer(name) {
+  layerState[name] = !layerState[name];
+  document.getElementById(`btn-${name}`).classList.toggle('active', layerState[name]);
+  if (name === 'heatmap') {
+    if (heatLayer) layerState.heatmap ? heatLayer.addTo(map) : map.removeLayer(heatLayer);
+    return;
+  }
+  const lg = { nature: natureLayer, tasks: taskLayer, hazards: hazardLayer }[name];
+  if (lg) layerState[name] ? lg.addTo(map) : map.removeLayer(lg);
+}
+
+// ─── Directions state ────────────────────────────────────────────────────
+const state = {
+  from: null, to: null,            // {lat, lng, label}
+  fromMarker: null, toMarker: null,
+  routeLine: null,
+  routeWaypointMarkers: [],
+  tapTarget: null,                 // 'from' | 'to' when picking on map
+  mode: 'walk', prefer: 'fast', viaTasks: false,
+  lastRoute: null,                 // last successful route result
+  tracking: null,                  // {watchId, points, startedAt, distance}
+};
+
+function setEndpoint(which, lat, lng, label) {
+  const ep = { lat, lng, label: label || `${lat.toFixed(4)}, ${lng.toFixed(4)}` };
+  state[which] = ep;
+  const input = document.getElementById(which + '-input');
+  input.value = ep.label;
+
+  const markerKey = which + 'Marker';
+  if (state[markerKey]) map.removeLayer(state[markerKey]);
+  state[markerKey] = L.marker([lat, lng], { icon: labelPin(which === 'from' ? 'A' : 'B', '#2E7D52') })
+    .addTo(map);
+
+  if (state.from && state.to) {
+    const b = L.latLngBounds([[state.from.lat, state.from.lng], [state.to.lat, state.to.lng]]);
+    map.fitBounds(b, { padding: [80, 80] });
+  }
+}
+
+// ─── Suggestions (Nominatim) ─────────────────────────────────────────────
+function debounce(fn, ms) {
+  let h; return (...args) => { clearTimeout(h); h = setTimeout(() => fn(...args), ms); };
+}
+async function fetchSuggest(q) {
+  if (!q || q.length < 3) return [];
+  const r = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+  const d = await r.json();
+  return d.ok ? d.results : [];
+}
+function bindSuggest(which) {
+  const input = document.getElementById(which + '-input');
+  const list = document.getElementById(which + '-suggest');
+  const run = debounce(async () => {
+    const q = input.value.trim();
+    const items = await fetchSuggest(q);
+    if (!items.length) { list.innerHTML = ''; list.classList.remove('open'); return; }
+    list.innerHTML = items.map(it =>
+      `<div class="dir-suggest-item" data-lat="${it.lat}" data-lng="${it.lng}" data-label="${it.display_name.replace(/"/g,'&quot;')}">
+         <div class="dir-suggest-name">${it.display_name.split(',')[0]}</div>
+         <div class="dir-suggest-sub">${it.display_name}</div>
+       </div>`).join('');
+    list.classList.add('open');
+  }, 280);
+  input.addEventListener('input', run);
+  input.addEventListener('focus', () => { if (list.innerHTML) list.classList.add('open'); });
+  list.addEventListener('click', e => {
+    const item = e.target.closest('.dir-suggest-item');
+    if (!item) return;
+    setEndpoint(which, parseFloat(item.dataset.lat), parseFloat(item.dataset.lng), item.dataset.label);
+    list.classList.remove('open');
+  });
+  document.addEventListener('click', e => {
+    if (!list.contains(e.target) && e.target !== input) list.classList.remove('open');
+  });
+}
+bindSuggest('from');
+bindSuggest('to');
+
+// ─── GPS for "from" + nearest panel ──────────────────────────────────────
+document.getElementById('from-gps-btn').addEventListener('click', useMyLocationAsFrom);
+async function useMyLocationAsFrom() {
+  if (!navigator.geolocation) return alert(T('Geolocation not available.', 'Геолокация не е налична.'));
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    const rev = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`).then(r => r.json()).catch(() => null);
+    setEndpoint('from', lat, lng, rev && rev.ok ? rev.display_name : null);
+    fetchNearest(lat, lng);
+  }, () => alert(T('Could not get your location.', 'Не може да се вземе местоположението.')), { timeout: 8000 });
+}
+
+async function fetchNearest(lat, lng) {
+  try {
+    const d = await (await fetch(`/api/nearest?lat=${lat}&lng=${lng}`)).json();
+    if (!d.ok) return;
+    const c = document.getElementById('nearest-content');
+    const parts = [];
+    if (d.task) {
+      parts.push(`<div class="nearest-row">
+        <div class="nearest-line"><strong>${d.task.title}</strong></div>
+        <div class="nearest-meta">${Math.round(d.task.distance_m)} m · +${d.task.points} ${T('pts','т.')}</div>
+      </div>`);
+    }
+    if (d.nature) {
+      parts.push(`<div class="nearest-row">
+        <div class="nearest-line">${d.nature.name}</div>
+        <div class="nearest-meta">${Math.round(d.nature.distance_m)} m</div>
+      </div>`);
+    }
+    if (parts.length) {
+      c.innerHTML = parts.join('');
+      document.getElementById('nearest-panel').classList.remove('hidden');
+    }
+  } catch (e) { console.error(e); }
+}
+
+// ─── Tap-to-set on map ───────────────────────────────────────────────────
+document.getElementById('to-tap-btn').addEventListener('click', () => {
+  state.tapTarget = 'to';
+  document.getElementById('dir-sheet').classList.add('collapsed');
+  showToast(T('Tap the map to set destination', 'Докосни картата за крайна точка'));
+});
+let longPressTimer = null;
+map.on('click', e => {
+  if (state.tapTarget) {
+    setEndpoint(state.tapTarget, e.latlng.lat, e.latlng.lng);
+    state.tapTarget = null;
+  }
+});
+// Long-press to open hazard report
+map.on('mousedown', e => {
+  longPressTimer = setTimeout(() => { openHazardModal(e.latlng.lat, e.latlng.lng); }, 600);
+});
+map.on('mouseup mousemove dragstart', () => { clearTimeout(longPressTimer); });
+
+// ─── Mode + preference chips ─────────────────────────────────────────────
+document.querySelectorAll('.mode-chip').forEach(b => b.addEventListener('click', () => {
+  if (b.disabled) return;
+  document.querySelectorAll('.mode-chip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  state.mode = b.dataset.mode;
+}));
+document.querySelectorAll('.pref-chip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.pref-chip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  state.prefer = b.dataset.pref;
+}));
+document.getElementById('via-tasks').addEventListener('change', e => {
+  state.viaTasks = e.target.checked;
+});
+
+// ─── Swap ────────────────────────────────────────────────────────────────
+document.getElementById('swap-btn').addEventListener('click', () => {
+  const a = state.from, b = state.to;
+  state.from = state.to = null;
+  document.getElementById('from-input').value = '';
+  document.getElementById('to-input').value = '';
+  if (state.fromMarker) { map.removeLayer(state.fromMarker); state.fromMarker = null; }
+  if (state.toMarker)   { map.removeLayer(state.toMarker);   state.toMarker = null; }
+  if (b) setEndpoint('from', b.lat, b.lng, b.label);
+  if (a) setEndpoint('to', a.lat, a.lng, a.label);
+});
+
+// ─── Plan route ──────────────────────────────────────────────────────────
+document.getElementById('plan-btn').addEventListener('click', planRoute);
+
+async function planRoute() {
+  if (!state.from || !state.to) return showToast(T('Set both A and B first.', 'Първо избери A и B.'), 'error');
+  const btn = document.getElementById('plan-btn');
+  btn.disabled = true; const orig = btn.innerHTML; btn.textContent = T('Planning…', 'Планиране…');
+
+  try {
+    const resp = await fetch('/api/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: [state.from.lat, state.from.lng],
+        to:   [state.to.lat,   state.to.lng],
+        mode: state.mode, prefer: state.prefer, via_tasks: state.viaTasks,
+      }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showToast(d.error || T('Route failed.','Маршрутът не успя.'), 'error'); return; }
+
+    state.lastRoute = d;
+    drawRoute(d);
+    showRouteDrawer(d);
+    document.getElementById('dir-sheet').classList.add('collapsed');
+  } catch (e) {
+    showToast(T('Network error.', 'Мрежова грешка.'), 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+function drawRoute(d) {
+  if (state.routeLine) map.removeLayer(state.routeLine);
+  state.routeWaypointMarkers.forEach(m => map.removeLayer(m));
+  state.routeWaypointMarkers = [];
+
+  const colorByPref = { fast: '#2E7D52', safe: '#246340', scenic: '#0F766E' }[state.prefer] || '#2E7D52';
+  state.routeLine = L.polyline(d.geometry, {
+    color: colorByPref, weight: 6, opacity: 0.85, lineJoin: 'round', lineCap: 'round',
+  }).addTo(map);
+  map.fitBounds(state.routeLine.getBounds(), { padding: [80, 80] });
+
+  (d.waypoints || []).forEach((wp, i) => {
+    const m = L.marker([wp.lat, wp.lng], { icon: labelPin(String(i + 1), '#34383D') }).addTo(map);
+    state.routeWaypointMarkers.push(m);
+  });
+}
+
+function showRouteDrawer(d) {
+  const km = (d.distance_m / 1000).toFixed(d.distance_m < 10000 ? 2 : 1);
+  const mins = Math.max(1, Math.round(d.duration_s / 60));
+  document.getElementById('route-distance').textContent = `${km} km`;
+  document.getElementById('route-duration').textContent = `${mins} ${T('min', 'мин')}`;
+
+  const safetyEl = document.getElementById('safety-text');
+  const safetyPill = document.getElementById('safety-pill');
+  safetyEl.textContent = `${T('Safety', 'Безопасност')} ${d.safety_score}`;
+  safetyPill.classList.toggle('low', d.safety_score < 60);
+
+  const warn = document.getElementById('route-warnings');
+  if (d.hazards_near && d.hazards_near.length) {
+    warn.classList.remove('hidden');
+    warn.innerHTML = d.hazards_near.slice(0, 3).map(h =>
+      `<div class="warn-row"><span class="warn-dot"></span>${h.type}${h.description ? ' — ' + h.description : ''} (${Math.round(h.distance_m)} m)</div>`
+    ).join('');
+  } else {
+    warn.classList.add('hidden'); warn.innerHTML = '';
+  }
+
+  const stepsEl = document.getElementById('route-steps');
+  stepsEl.innerHTML = (d.steps || []).map((s, i) =>
+    `<div class="step-row">
+       <span class="step-num">${i + 1}</span>
+       <div class="step-text">${s.text || '—'}</div>
+       <span class="step-dist">${Math.round(s.distance_m)} m</span>
+     </div>`).join('');
+
+  document.getElementById('route-drawer').classList.remove('hidden');
+  document.getElementById('track-start-btn').disabled = state.mode === 'drive';
+}
+
+function closeRouteDrawer() {
+  document.getElementById('route-drawer').classList.add('hidden');
+  if (state.tracking) stopTracking(false);
+}
+document.getElementById('steps-toggle-btn').addEventListener('click', () => {
+  document.getElementById('route-steps').classList.toggle('hidden');
+});
+
+// ─── Sheet collapse ──────────────────────────────────────────────────────
+function toggleSheet() {
+  document.getElementById('dir-sheet').classList.toggle('collapsed');
+}
+
+// ─── Hazard report ───────────────────────────────────────────────────────
+let hazardType = 'lighting';
+document.querySelectorAll('.hazard-type-chip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.hazard-type-chip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  hazardType = b.dataset.htype;
+}));
+function openHazardModal(lat, lng) {
+  document.getElementById('hazard-lat').value = lat;
+  document.getElementById('hazard-lng').value = lng;
+  document.getElementById('hazard-desc').value = '';
+  openModal('hazard-modal');
+}
+document.getElementById('hazard-submit').addEventListener('click', async () => {
+  const lat = parseFloat(document.getElementById('hazard-lat').value);
+  const lng = parseFloat(document.getElementById('hazard-lng').value);
+  const description = document.getElementById('hazard-desc').value.trim();
+  const r = await fetch('/api/hazard/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat, lng, type: hazardType, description }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    showToast(T('Thanks! Report submitted.', 'Благодарим! Сигналът е изпратен.'), 'success');
+    closeModal('hazard-modal');
+    loadHazards();
+  } else {
+    showToast(d.error || T('Failed.', 'Грешка.'), 'error');
+  }
+});
+
+// ─── GPS tracking for green-route reward ─────────────────────────────────
+document.getElementById('track-start-btn').addEventListener('click', () => {
+  if (state.tracking) { finishTracking(); } else { startTracking(); }
+});
+
+function startTracking() {
+  if (!navigator.geolocation) return showToast(T('GPS not available.','GPS не е наличен.'), 'error');
+  state.tracking = { watchId: null, points: [], startedAt: Date.now(), distance: 0 };
+  state.tracking.watchId = navigator.geolocation.watchPosition(pos => {
+    const p = [pos.coords.latitude, pos.coords.longitude];
+    const t = state.tracking;
+    if (t.points.length) {
+      t.distance += haversine(t.points[t.points.length - 1], p);
+    }
+    t.points.push(p);
+    document.getElementById('track-btn-label').textContent =
+      `${T('Stop','Спри')} · ${(t.distance/1000).toFixed(2)} km`;
+  }, err => console.warn(err), { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+  document.getElementById('track-start-btn').classList.add('tracking');
+  showToast(T('Tracking started. Walk safely.', 'Започна проследяване. Върви безопасно.'), 'success');
+}
+
+function stopTracking(showFinish) {
+  if (!state.tracking) return;
+  if (state.tracking.watchId !== null) navigator.geolocation.clearWatch(state.tracking.watchId);
+  const t = state.tracking;
+  state.tracking = null;
+  document.getElementById('track-start-btn').classList.remove('tracking');
+  document.getElementById('track-btn-label').textContent = T('Start & track', 'Започни и проследи');
+  if (showFinish) {
+    const km = (t.distance / 1000).toFixed(2);
+    const dur = Math.max(1, Math.round((Date.now() - t.startedAt) / 60000));
+    document.getElementById('track-summary').textContent =
+      `${km} km · ${dur} ${T('min','мин')} · ${state.mode}`;
+    pendingClaim = { distance_m: t.distance, duration_s: (Date.now() - t.startedAt) / 1000, mode: state.mode };
+    openModal('track-finish-modal');
+  }
+}
+
+function finishTracking() { stopTracking(true); }
+
+let pendingClaim = null;
+document.getElementById('track-claim-btn').addEventListener('click', async () => {
+  if (!pendingClaim) return;
+  const fd = new FormData();
+  fd.append('distance_m', pendingClaim.distance_m);
+  fd.append('duration_s', pendingClaim.duration_s);
+  fd.append('mode', pendingClaim.mode);
+  const photoInput = document.getElementById('track-photo');
+  if (photoInput.files[0]) fd.append('photo', photoInput.files[0]);
+  const btn = document.getElementById('track-claim-btn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/route/complete', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.ok) {
+      showToast(`+${d.points_awarded} pts!`, 'success');
+      closeModal('track-finish-modal');
+      const badge = document.querySelectorAll('.points-badge span:last-child');
+      badge.forEach(s => s.textContent = d.total_points);
+    } else {
+      showToast(d.error || T('Failed.','Грешка.'), 'error');
+    }
+  } catch (e) {
+    showToast(T('Network error.','Мрежова грешка.'), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ─── Haversine ───────────────────────────────────────────────────────────
+function haversine(a, b) {
+  const toR = d => d * Math.PI / 180;
+  const R = 6371000;
+  const dLat = toR(b[0] - a[0]), dLng = toR(b[1] - a[1]);
+  const lat1 = toR(a[0]), lat2 = toR(b[0]);
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Auto-show "near you" panel on first GPS hit
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(p => fetchNearest(p.coords.latitude, p.coords.longitude),
+                                            () => {}, { timeout: 6000 });
+}
 </script>
 {% endblock %}

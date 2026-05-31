@@ -170,3 +170,37 @@ class UserBadge(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     badge_id = db.Column(db.Integer, db.ForeignKey('badges.id'), nullable=False)
     earned_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Hazard(db.Model):
+    """User-submitted hazard pin (broken sidewalk, no lights, aggressive dogs, ...).
+    Auto-published on creation; admins can hide individual reports from /admin."""
+    __tablename__ = 'hazards'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    lat = db.Column(db.Float, nullable=False)
+    lng = db.Column(db.Float, nullable=False)
+    # short category: 'lighting' | 'sidewalk' | 'traffic' | 'flooding' | 'other'
+    hazard_type = db.Column(db.String(20), nullable=False, default='other')
+    description = db.Column(db.String(500), nullable=True)
+    photo_path = db.Column(db.String(500), nullable=True)
+    hidden = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship('User', lazy=True)
+
+
+class RouteCompletion(db.Model):
+    """A green route the user actually walked or cycled. Awards points by distance,
+    capped per day at the application layer to prevent abuse."""
+    __tablename__ = 'route_completions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    mode = db.Column(db.String(10), nullable=False)  # 'walk' | 'bike'
+    distance_m = db.Column(db.Float, nullable=False)
+    duration_s = db.Column(db.Float, nullable=True)
+    points_awarded = db.Column(db.Integer, nullable=False, default=0)
+    photo_path = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship('User', lazy=True)

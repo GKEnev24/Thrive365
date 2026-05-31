@@ -210,30 +210,31 @@ def seed_prizes():
     if Prize.query.count() > 0:
         return
     prizes = [
+        # `image` stores an icon name (rendered via the Jinja icon macro), not an emoji.
         Prize(title_en="Free Coffee at Café Aroma", title_bg="Безплатно кафе в Café Aroma",
               description_en="Enjoy a free coffee of your choice at the popular Café Aroma in Burgas city center. Valid for any drink on the menu.",
               description_bg="Насладете се на безплатно кафе по ваш избор в популярното Café Aroma в центъра на Бургас. Важи за всяка напитка от менюто.",
-              points_cost=150, stock=50, image="☕"),
+              points_cost=150, stock=50, image="gift"),
         Prize(title_en="10% Discount at Eco Market", title_bg="10% отстъпка в Еко Маркет",
               description_en="Get a 10% discount on your next purchase at Eco Market, the city's leading organic and sustainable grocery store.",
               description_bg="Получете 10% отстъпка от следващата си покупка в Еко Маркет, водещия магазин за органични и устойчиви продукти в града.",
-              points_cost=200, stock=100, image="🛒"),
+              points_cost=200, stock=100, image="salad"),
         Prize(title_en="City Bus Day Pass", title_bg="Еднодневна карта за градски транспорт",
               description_en="Travel freely around Burgas for an entire day with this all-inclusive city bus day pass. Go green, skip the car!",
               description_bg="Пътувайте свободно из Бургас за цял ден с тази карта за градски транспорт. Изберете зеленото, пропуснете колата!",
-              points_cost=300, stock=30, image="🚌"),
+              points_cost=300, stock=30, image="bus"),
         Prize(title_en="Thrive365 Eco Tote Bag", title_bg="Еко чанта Thrive365",
-              description_en="Receive a premium Thrive365 branded reusable tote bag made from organic cotton. Stylish and sustainable!",
-              description_bg="Получете премиум многократна чанта с марката Thrive365, изработена от органичен памук. Стилно и устойчиво!",
-              points_cost=250, stock=75, image="🛍️"),
+              description_en="Receive a premium Thrive365 branded reusable tote bag made from organic cotton. Stylish and sustainable.",
+              description_bg="Получете премиум многократна чанта с марката Thrive365, изработена от органичен памук. Стилно и устойчиво.",
+              points_cost=250, stock=75, image="gift"),
         Prize(title_en="Free Entry to Sea Garden Events", title_bg="Безплатен вход за събития в Морската градина",
-              description_en="Get free entry to selected cultural and eco events at the beautiful Burgas Sea Garden. Enjoy nature and culture together!",
-              description_bg="Получете безплатен вход за избрани културни и еко събития в красивата Морска градина на Бургас. Насладете се на природа и култура!",
-              points_cost=400, stock=20, image="🌊"),
+              description_en="Get free entry to selected cultural and eco events at the beautiful Burgas Sea Garden.",
+              description_bg="Получете безплатен вход за избрани културни и еко събития в Морска градина, Бургас.",
+              points_cost=400, stock=20, image="leaf"),
         Prize(title_en="Plant a Tree in Your Name", title_bg="Засади дърво на твое име",
-              description_en="We'll plant a tree in your name in Burgas and send you an official certificate with the GPS location of your tree. Leave a lasting legacy!",
-              description_bg="Ще засадим дърво на ваше име в Бургас и ще ви изпратим официален сертификат с GPS позицията на вашето дърво. Оставете траен спомен!",
-              points_cost=500, stock=200, image="🌳"),
+              description_en="We'll plant a tree in your name in Burgas and send you an official certificate with its GPS location.",
+              description_bg="Ще засадим дърво на ваше име в Бургас и ще ви изпратим сертификат с GPS позицията.",
+              points_cost=500, stock=200, image="tree"),
     ]
     db.session.add_all(prizes)
     db.session.commit()
@@ -242,17 +243,28 @@ def seed_prizes():
 def seed_badges():
     if Badge.query.count() > 0:
         return
+    # `icon` stores an icon name (rendered via the Jinja icon macro), not an emoji.
     badges = [
-        Badge(name="First Step", icon="🌱", description_en="Complete your very first eco-task",
-              description_bg="Завърши първата си еко-задача", condition_type="tasks", condition_value=1),
-        Badge(name="Green Achiever", icon="🏆", description_en="Earn 100 points total",
-              description_bg="Спечели общо 100 точки", condition_type="points", condition_value=100),
-        Badge(name="Eco Warrior", icon="⚔️", description_en="Earn 500 points total",
-              description_bg="Спечели общо 500 точки", condition_type="points", condition_value=500),
-        Badge(name="Sustainability Champion", icon="🌍", description_en="Earn 1000 points total",
-              description_bg="Спечели общо 1000 точки", condition_type="points", condition_value=1000),
-        Badge(name="Week Warrior", icon="🔥", description_en="Maintain a 7-day activity streak",
-              description_bg="Поддържай 7-дневна серия от активност", condition_type="streak", condition_value=7),
+        Badge(name="First Step", icon="leaf",
+              description_en="Complete your very first eco-task",
+              description_bg="Завърши първата си еко-задача",
+              condition_type="tasks", condition_value=1),
+        Badge(name="Green Achiever", icon="trophy",
+              description_en="Earn 100 points total",
+              description_bg="Спечели общо 100 точки",
+              condition_type="points", condition_value=100),
+        Badge(name="Eco Warrior", icon="shield",
+              description_en="Earn 500 points total",
+              description_bg="Спечели общо 500 точки",
+              condition_type="points", condition_value=500),
+        Badge(name="Champion", icon="medal",
+              description_en="Earn 1000 points total",
+              description_bg="Спечели общо 1000 точки",
+              condition_type="points", condition_value=1000),
+        Badge(name="Week Warrior", icon="flame",
+              description_en="Maintain a 7-day activity streak",
+              description_bg="Поддържай 7-дневна серия от активност",
+              condition_type="streak", condition_value=7),
     ]
     db.session.add_all(badges)
     db.session.commit()

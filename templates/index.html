@@ -1,22 +1,26 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
-{% block title %}Thrive365 — Eco Actions for Burgas{% endblock %}
+{% block title %}Thrive365 — Sustainable actions for Burgas{% endblock %}
 {% block body_class %}landing-body{% endblock %}
 
 {% block content %}
 
-<!-- Hero -->
 <section class="hero">
-  <span class="hero-city">🇧🇬 Burgas, Bulgaria</span>
-  <div class="hero-logo">🌿</div>
+  <span class="hero-eyebrow">{{ icon('map-pin', 12) }} Burgas · Bulgaria</span>
+  <div class="hero-logo">{{ icon('leaf', 28) }}</div>
   <h1 class="hero-title">Thrive365</h1>
-  <p class="hero-tagline">Turn everyday actions into<br>a greener Burgas.</p>
+  <p class="hero-tagline">
+    {{ 'Turn everyday actions into measurable impact for a greener Burgas.'
+       if lang == 'en' else
+       'Превърни ежедневните си действия в измерим принос за по-зелен Бургас.' }}
+  </p>
 
   <div class="hero-buttons">
     <a href="{{ url_for('register') }}" class="btn btn-primary btn-full">
-      {{ '🌱 Create Account' if lang == 'en' else '🌱 Създай профил' }}
+      {{ 'Create account' if lang == 'en' else 'Създай профил' }} {{ icon('arrow-right', 14) }}
     </a>
     <a href="{{ url_for('login') }}" class="btn btn-outline btn-full">
-      {{ 'Log In' if lang == 'en' else 'Влез' }}
+      {{ 'Log in' if lang == 'en' else 'Влез' }}
     </a>
 
     {% if google_enabled %}
@@ -31,66 +35,65 @@
     </a>
     {% endif %}
 
-    <a href="{{ url_for('login_demo') }}" class="btn-demo">
-      {{ '✨ Try Demo' if lang == 'en' else '✨ Пробвай демо' }}
+    <a href="{{ url_for('login_demo') }}" class="btn-demo-link">
+      {{ 'Try the demo →' if lang == 'en' else 'Пробвай демо →' }}
     </a>
   </div>
 </section>
 
-<!-- How it works -->
 <section class="how-it-works">
   <p class="section-label">{{ 'How it works' if lang == 'en' else 'Как работи' }}</p>
   <h2 class="section-title">{{ 'Three steps to a greener city' if lang == 'en' else 'Три стъпки към по-зелен град' }}</h2>
 
   <div class="steps">
     <div class="step">
-      <div class="step-icon">📋</div>
+      <div class="step-icon">{{ icon('list', 20) }}</div>
       <div>
         <div class="step-num">{{ 'Step 1' if lang == 'en' else 'Стъпка 1' }}</div>
-        <div class="step-title">{{ 'Complete Eco-Tasks' if lang == 'en' else 'Изпълни еко-задачи' }}</div>
-        <div class="step-desc">{{ 'Every day brings 5 fresh challenges across Burgas — plant, clean, cycle & more.' if lang == 'en' else 'Всеки ден носи 5 нови предизвикателства в Бургас — засаждай, почиствай, карай колело и още.' }}</div>
+        <div class="step-title">{{ 'Complete daily eco-tasks' if lang == 'en' else 'Изпълни ежедневни еко-задачи' }}</div>
+        <div class="step-desc">{{ 'Five challenges per day, tailored to your neighborhood and routine.' if lang == 'en' else 'Пет предизвикателства на ден, съобразени с твоя квартал и ежедневие.' }}</div>
       </div>
     </div>
     <div class="step">
-      <div class="step-icon">⚡</div>
+      <div class="step-icon">{{ icon('camera', 20) }}</div>
       <div>
         <div class="step-num">{{ 'Step 2' if lang == 'en' else 'Стъпка 2' }}</div>
-        <div class="step-title">{{ 'Earn Points' if lang == 'en' else 'Спечели точки' }}</div>
-        <div class="step-desc">{{ 'Upload a photo proof. Our AI verifies it and awards you points instantly.' if lang == 'en' else 'Качи снимка като доказателство. Нашият AI я проверява и незабавно ти дава точки.' }}</div>
+        <div class="step-title">{{ 'Verify with a photo' if lang == 'en' else 'Потвърди със снимка' }}</div>
+        <div class="step-desc">{{ 'Our AI checks your photo proof and instantly awards points.' if lang == 'en' else 'Нашият AI проверява снимката и веднага начислява точки.' }}</div>
       </div>
     </div>
     <div class="step">
-      <div class="step-icon">🎁</div>
+      <div class="step-icon">{{ icon('gift', 20) }}</div>
       <div>
         <div class="step-num">{{ 'Step 3' if lang == 'en' else 'Стъпка 3' }}</div>
-        <div class="step-title">{{ 'Win Local Prizes' if lang == 'en' else 'Спечели местни награди' }}</div>
-        <div class="step-desc">{{ 'Redeem points for coffee, transit passes, eco-merch, and more from Burgas partners.' if lang == 'en' else 'Използвай точките за кафе, транспортни карти, еко-стоки и още от партньори в Бургас.' }}</div>
+        <div class="step-title">{{ 'Redeem real rewards' if lang == 'en' else 'Получи реални награди' }}</div>
+        <div class="step-desc">{{ 'Spend points on Burgas-local partner offers: transit, coffee, tree planting.' if lang == 'en' else 'Похарчи точките за местни партньорски оферти: транспорт, кафе, засаждане на дърво.' }}</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Stats bar -->
-<section style="background:var(--green-light);padding:24px 20px;text-align:center;">
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
-    <div>
-      <div style="font-size:24px;font-weight:900;color:var(--green);">365</div>
-      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Days / Year' if lang == 'en' else 'Дни в годината' }}</div>
-    </div>
-    <div>
-      <div style="font-size:24px;font-weight:900;color:var(--green);">5</div>
-      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Daily Tasks' if lang == 'en' else 'Дневни задачи' }}</div>
-    </div>
-    <div>
-      <div style="font-size:24px;font-weight:900;color:var(--green);">6+</div>
-      <div style="font-size:11px;color:var(--text-secondary);font-weight:600;">{{ 'Prizes' if lang == 'en' else 'Награди' }}</div>
-    </div>
+<section class="stats-row">
+  <div>
+    <div class="stat-value">365</div>
+    <div class="stat-label">{{ 'Days a year' if lang == 'en' else 'Дни в годината' }}</div>
+  </div>
+  <div>
+    <div class="stat-value">5</div>
+    <div class="stat-label">{{ 'Daily tasks' if lang == 'en' else 'Дневни задачи' }}</div>
+  </div>
+  <div>
+    <div class="stat-value">6+</div>
+    <div class="stat-label">{{ 'Partner rewards' if lang == 'en' else 'Партньорски награди' }}</div>
   </div>
 </section>
 
-<!-- Footer -->
 <footer class="landing-footer">
-  <p>🌍 {{ 'Made for a greener Burgas · ' if lang == 'en' else 'Направено за по-зелен Бургас · ' }}<a href="{{ url_for('admin') }}" style="color:var(--text-muted);">Admin</a></p>
+  <p>
+    {{ 'Built for a greener Burgas.' if lang == 'en' else 'Създадено за по-зелен Бургас.' }}
+    &nbsp;·&nbsp;
+    <a href="{{ url_for('admin') }}">Admin</a>
+  </p>
 </footer>
 
 {% endblock %}

@@ -37,13 +37,15 @@ const ThriveAI = (() => {
     return html;
   }
 
+  const AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>';
+
   function appendMessage(role, text) {
     const box = $('thriveai-messages');
     if (!box) return null;
     const row = document.createElement('div');
     row.className = `thriveai-msg thriveai-msg-${role}`;
     if (role === 'ai') {
-      row.innerHTML = `<span class="thriveai-msg-avatar">🌱</span>
+      row.innerHTML = `<span class="thriveai-msg-avatar">${AVATAR_SVG}</span>
                        <div class="thriveai-bubble">${format(text)}</div>`;
     } else {
       row.innerHTML = `<div class="thriveai-bubble">${format(text)}</div>`;
@@ -59,7 +61,7 @@ const ThriveAI = (() => {
     const row = document.createElement('div');
     row.className = 'thriveai-msg thriveai-msg-ai';
     row.id = 'thriveai-typing';
-    row.innerHTML = `<span class="thriveai-msg-avatar">🌱</span>
+    row.innerHTML = `<span class="thriveai-msg-avatar">${AVATAR_SVG}</span>
       <div class="thriveai-bubble thriveai-typing">
         <span></span><span></span><span></span>
       </div>`;
@@ -71,8 +73,8 @@ const ThriveAI = (() => {
   function greeting() {
     const name = NAME ? (LANG === 'bg' ? `, ${NAME}` : ` ${NAME}`) : '';
     return t(
-      `Hi${name}! 🌱 I'm ThriveAI, your guide to a greener Burgas. Ask me about today's tasks, your points, rewards, or eco-tips!`,
-      `Здравей${name}! 🌱 Аз съм ThriveAI, твоят помощник за по-зелен Бургас. Питай ме за днешните задачи, точки, награди или еко-съвети!`
+      `Hi${name}, I'm ThriveAI — your sustainability guide for Burgas. Ask me about your tasks, points, rewards, or anything green.`,
+      `Здравей${name}, аз съм ThriveAI — твоят помощник за устойчивост в Бургас. Питай ме за задачите, точките, наградите или каквото и да е свързано с природата.`
     );
   }
 

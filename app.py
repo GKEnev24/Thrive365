@@ -16,8 +16,10 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 
-from models import db, User, TaskTemplate, AssignedTask, Prize, Redemption, Badge, UserBadge
+from models import (db, User, TaskTemplate, AssignedTask, Prize, Redemption,
+                    Badge, UserBadge, Hazard, RouteCompletion)
 from database import seed_db
+from services import routing as routing_service
 import thriveai
 
 app = Flask(__name__)
@@ -93,46 +95,46 @@ NEIGHBORHOODS = ['Център', 'Лазур', 'Възраждане', 'Брат
 
 ONBOARD_OPTIONS = {
     'transport': [
-        {'value': 'car', 'en': 'Mostly car', 'bg': 'Предимно кола', 'icon': '🚗'},
-        {'value': 'bike', 'en': 'Bicycle', 'bg': 'Колело', 'icon': '🚲'},
-        {'value': 'walk', 'en': 'On foot', 'bg': 'Пеша', 'icon': '🚶'},
-        {'value': 'transit', 'en': 'Public transport', 'bg': 'Градски транспорт', 'icon': '🚌'},
-        {'value': 'mixed', 'en': 'A mix', 'bg': 'Смесено', 'icon': '🔀'},
+        {'value': 'car',     'en': 'Mostly car',       'bg': 'Предимно кола',         'icon': 'bus'},
+        {'value': 'bike',    'en': 'Bicycle',          'bg': 'Колело',                'icon': 'bike'},
+        {'value': 'walk',    'en': 'On foot',          'bg': 'Пеша',                  'icon': 'user'},
+        {'value': 'transit', 'en': 'Public transport', 'bg': 'Градски транспорт',     'icon': 'bus'},
+        {'value': 'mixed',   'en': 'A mix',            'bg': 'Смесено',               'icon': 'arrow-right'},
     ],
     'home_type': [
-        {'value': 'apartment', 'en': 'Apartment', 'bg': 'Апартамент', 'icon': '🏢'},
-        {'value': 'house', 'en': 'House', 'bg': 'Къща', 'icon': '🏡'},
+        {'value': 'apartment', 'en': 'Apartment', 'bg': 'Апартамент', 'icon': 'home'},
+        {'value': 'house',     'en': 'House',     'bg': 'Къща',       'icon': 'home'},
     ],
     'garden_access': [
-        {'value': 'none', 'en': 'No outdoor space', 'bg': 'Без външно пространство', 'icon': '🚪'},
-        {'value': 'balcony', 'en': 'Balcony', 'bg': 'Балкон', 'icon': '🪴'},
-        {'value': 'yard', 'en': 'Small yard', 'bg': 'Малък двор', 'icon': '🌿'},
-        {'value': 'garden', 'en': 'Garden', 'bg': 'Градина', 'icon': '🌳'},
+        {'value': 'none',    'en': 'No outdoor space', 'bg': 'Без външно пространство', 'icon': 'home'},
+        {'value': 'balcony', 'en': 'Balcony',          'bg': 'Балкон',                  'icon': 'leaf'},
+        {'value': 'yard',    'en': 'Small yard',       'bg': 'Малък двор',              'icon': 'tree'},
+        {'value': 'garden',  'en': 'Garden',           'bg': 'Градина',                 'icon': 'tree'},
     ],
     'interests': [
-        {'value': 'recycling', 'en': 'Recycling', 'bg': 'Рециклиране', 'icon': '♻️'},
-        {'value': 'nature', 'en': 'Nature & planting', 'bg': 'Природа и засаждане', 'icon': '🌱'},
-        {'value': 'cycling', 'en': 'Cycling & transport', 'bg': 'Колоездене и транспорт', 'icon': '🚲'},
-        {'value': 'energy', 'en': 'Saving energy', 'bg': 'Пестене на енергия', 'icon': '💡'},
-        {'value': 'water', 'en': 'Saving water', 'bg': 'Пестене на вода', 'icon': '💧'},
-        {'value': 'community', 'en': 'Community action', 'bg': 'Общностни действия', 'icon': '🤝'},
-        {'value': 'food', 'en': 'Sustainable food', 'bg': 'Устойчива храна', 'icon': '🥗'},
-        {'value': 'waste', 'en': 'Litter & cleanups', 'bg': 'Боклук и почистване', 'icon': '🧹'},
+        {'value': 'recycling', 'en': 'Recycling',          'bg': 'Рециклиране',              'icon': 'recycle'},
+        {'value': 'nature',    'en': 'Nature & planting',  'bg': 'Природа и засаждане',      'icon': 'leaf'},
+        {'value': 'cycling',   'en': 'Cycling & transport','bg': 'Колоездене и транспорт',   'icon': 'bike'},
+        {'value': 'energy',    'en': 'Saving energy',      'bg': 'Пестене на енергия',       'icon': 'bulb'},
+        {'value': 'water',     'en': 'Saving water',       'bg': 'Пестене на вода',          'icon': 'droplet'},
+        {'value': 'community', 'en': 'Community action',   'bg': 'Общностни действия',       'icon': 'handshake'},
+        {'value': 'food',      'en': 'Sustainable food',   'bg': 'Устойчива храна',          'icon': 'salad'},
+        {'value': 'waste',     'en': 'Litter & cleanups',  'bg': 'Боклук и почистване',      'icon': 'broom'},
     ],
     'time_commitment': [
-        {'value': 'low', 'en': 'A few minutes', 'bg': 'Няколко минути', 'icon': '⏱️'},
-        {'value': 'medium', 'en': '15–30 min/day', 'bg': '15–30 мин/ден', 'icon': '⏳'},
-        {'value': 'high', 'en': 'I want a challenge', 'bg': 'Искам предизвикателство', 'icon': '🔥'},
+        {'value': 'low',    'en': 'A few minutes',     'bg': 'Няколко минути',           'icon': 'calendar'},
+        {'value': 'medium', 'en': '15–30 min/day',     'bg': '15–30 мин/ден',            'icon': 'calendar'},
+        {'value': 'high',   'en': 'I want a challenge','bg': 'Искам предизвикателство',  'icon': 'flame'},
     ],
     'activity_level': [
-        {'value': 'low', 'en': 'Light & easy', 'bg': 'Леко и спокойно', 'icon': '🍃'},
-        {'value': 'medium', 'en': 'Moderate', 'bg': 'Умерено', 'icon': '🚶'},
-        {'value': 'high', 'en': 'Very active', 'bg': 'Много активно', 'icon': '🏃'},
+        {'value': 'low',    'en': 'Light & easy', 'bg': 'Леко и спокойно', 'icon': 'leaf'},
+        {'value': 'medium', 'en': 'Moderate',     'bg': 'Умерено',         'icon': 'user'},
+        {'value': 'high',   'en': 'Very active',  'bg': 'Много активно',   'icon': 'flame'},
     ],
     'age_range': [
-        {'value': 'teen', 'en': 'Under 18', 'bg': 'Под 18', 'icon': '🧒'},
-        {'value': 'adult', 'en': '18–60', 'bg': '18–60', 'icon': '🧑'},
-        {'value': 'senior', 'en': '60+', 'bg': '60+', 'icon': '🧓'},
+        {'value': 'teen',   'en': 'Under 18', 'bg': 'Под 18', 'icon': 'user'},
+        {'value': 'adult',  'en': '18–60',    'bg': '18–60',  'icon': 'user'},
+        {'value': 'senior', 'en': '60+',      'bg': '60+',    'icon': 'user'},
     ],
 }
 
@@ -537,7 +539,7 @@ def onboarding():
 
         # build the first set of personalised tasks immediately
         generate_daily_tasks(current_user)
-        flash('Your profile is set! Here are your personalised eco-tasks. 🌱', 'success')
+        flash('Your profile is set. Here are your personalised eco-tasks.', 'success')
         return redirect(url_for('tasks'))
 
     return render_template('onboarding.html', neighborhoods=NEIGHBORHOODS,
@@ -655,6 +657,287 @@ def map_data():
     } for t in my_tasks if t.lat is not None and t.lng is not None]
 
     return jsonify({'tasks': task_data, 'heatmap': heatmap})
+
+
+# ─── Routing & geocoding (interactive map) ──────────────────────────────────────
+
+MAX_VIA_WAYPOINTS = 6
+DAILY_ROUTE_POINTS_CAP = 200
+POINTS_PER_KM = {'walk': 5, 'bike': 3}  # walking is harder, awarded more per km
+
+
+def _parse_latlng(v):
+    """Accept [lat,lng] or {'lat':..,'lng':..} from JSON; return (float,float) or None."""
+    try:
+        if isinstance(v, dict):
+            return float(v['lat']), float(v['lng'])
+        if isinstance(v, (list, tuple)) and len(v) == 2:
+            return float(v[0]), float(v[1])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return None
+
+
+@app.route('/api/route', methods=['POST'])
+@login_required
+def api_route():
+    """Plan a route. Accepts optional `via_tasks=true` to weave the request
+    through the user's pending tasks-with-locations for today."""
+    data = request.get_json(silent=True) or {}
+    origin = _parse_latlng(data.get('from'))
+    destination = _parse_latlng(data.get('to'))
+    if not origin or not destination:
+        return jsonify({'ok': False, 'error': 'Provide valid `from` and `to` as [lat, lng].'}), 400
+
+    mode = (data.get('mode') or 'walk').lower()
+    prefer = (data.get('prefer') or 'fast').lower()
+    via_tasks = bool(data.get('via_tasks'))
+
+    waypoints = []
+    if via_tasks:
+        pending = (AssignedTask.query
+                   .filter_by(user_id=current_user.id, date=date.today(), verified=False)
+                   .filter(AssignedTask.lat.isnot(None), AssignedTask.lng.isnot(None))
+                   .order_by(AssignedTask.id).all())
+        # Cap to keep ORS calls fast and within free-tier complexity limits.
+        for t in pending[:MAX_VIA_WAYPOINTS]:
+            waypoints.append((t.lat, t.lng))
+
+    result = routing_service.route(origin, destination, mode=mode,
+                                   prefer=prefer, waypoints=waypoints)
+    if not result.get('ok'):
+        return jsonify(result), 200  # frontend wants JSON, not a Flask error page
+
+    # Flag any visible (non-hidden) hazards that fall close to the route geometry.
+    visible_hazards = Hazard.query.filter_by(hidden=False).all()
+    nearby = []
+    for h in visible_hazards:
+        d = routing_service.closest_in_geometry(result['geometry'], (h.lat, h.lng), threshold_m=60)
+        if d is not None:
+            nearby.append({'id': h.id, 'lat': h.lat, 'lng': h.lng, 'type': h.hazard_type,
+                           'description': h.description, 'distance_m': round(d, 1)})
+    result['hazards_near'] = nearby
+
+    # Lightweight safety score: 100 minus penalties from hazards + (placeholder) lit %.
+    score = 100 - min(len(nearby) * 8, 40)
+    result['safety_score'] = score
+
+    # Pass through the waypoint list so the UI can render labels on the map.
+    result['waypoints'] = [{'lat': lat, 'lng': lng} for lat, lng in waypoints]
+
+    return jsonify(result)
+
+
+@app.route('/api/geocode')
+@login_required
+def api_geocode():
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({'ok': False, 'error': 'Provide ?q='}), 400
+    return jsonify(routing_service.geocode(q, limit=6))
+
+
+@app.route('/api/reverse-geocode')
+@login_required
+def api_reverse_geocode():
+    try:
+        lat = float(request.args.get('lat')); lng = float(request.args.get('lng'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'lat & lng required'}), 400
+    return jsonify(routing_service.reverse_geocode(lat, lng))
+
+
+@app.route('/api/nearest')
+@login_required
+def api_nearest():
+    """Find the closest pending task / nature spot / partner reward to a point."""
+    try:
+        lat = float(request.args.get('lat')); lng = float(request.args.get('lng'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'lat & lng required'}), 400
+    here = (lat, lng)
+
+    def nearest(rows, get_pos):
+        best, best_d = None, None
+        for r in rows:
+            pos = get_pos(r)
+            if pos is None: continue
+            d = routing_service.haversine_m(here, pos)
+            if best_d is None or d < best_d:
+                best, best_d = r, d
+        return best, best_d
+
+    today = date.today()
+    pending = (AssignedTask.query
+               .filter_by(user_id=current_user.id, date=today, verified=False)
+               .filter(AssignedTask.lat.isnot(None), AssignedTask.lng.isnot(None))
+               .all())
+    task, td = nearest(pending, lambda t: (t.lat, t.lng))
+
+    # Burgas hand-curated nature spots (kept in sync with map.html overlays).
+    nature_spots = [
+        {'name_en': 'Primorski Park',     'name_bg': 'Приморски парк',     'lat': 42.4947, 'lng': 27.4731},
+        {'name_en': 'Atanasovsko Ezero',  'name_bg': 'Атанасовско езеро',  'lat': 42.5576, 'lng': 27.5011},
+        {'name_en': 'Ezerata Lakes',      'name_bg': 'Езерата',            'lat': 42.5150, 'lng': 27.4700},
+        {'name_en': 'Sea Garden Beach',   'name_bg': 'Морска градина',     'lat': 42.4880, 'lng': 27.4790},
+    ]
+    spot, sd = nearest(nature_spots, lambda s: (s['lat'], s['lng']))
+
+    lang = get_lang()
+    payload = {'ok': True}
+    if task:
+        payload['task'] = {
+            'id': task.id,
+            'title': task.title(lang),
+            'location': task.location_name or ('Burgas' if lang == 'en' else 'Бургас'),
+            'points': task.points,
+            'lat': task.lat, 'lng': task.lng,
+            'distance_m': round(td, 1) if td is not None else None,
+        }
+    if spot:
+        payload['nature'] = {
+            'name': spot['name_en'] if lang == 'en' else spot['name_bg'],
+            'lat': spot['lat'], 'lng': spot['lng'],
+            'distance_m': round(sd, 1) if sd is not None else None,
+        }
+    return jsonify(payload)
+
+
+# ─── Hazard reports ─────────────────────────────────────────────────────────────
+
+ALLOWED_HAZARD_TYPES = {'lighting', 'sidewalk', 'traffic', 'flooding', 'other'}
+
+
+@app.route('/api/hazards')
+@login_required
+def api_hazards():
+    """Return all visible hazards. Optional bbox: ?minLat=..&minLng=..&maxLat=..&maxLng=.."""
+    q = Hazard.query.filter_by(hidden=False)
+    try:
+        if all(k in request.args for k in ('minLat', 'minLng', 'maxLat', 'maxLng')):
+            mnLa = float(request.args['minLat']); mxLa = float(request.args['maxLat'])
+            mnLn = float(request.args['minLng']); mxLn = float(request.args['maxLng'])
+            q = q.filter(Hazard.lat.between(mnLa, mxLa),
+                         Hazard.lng.between(mnLn, mxLn))
+    except (TypeError, ValueError):
+        pass
+    return jsonify({'ok': True, 'hazards': [
+        {'id': h.id, 'lat': h.lat, 'lng': h.lng, 'type': h.hazard_type,
+         'description': h.description,
+         'photo': (url_for('static', filename=h.photo_path) if h.photo_path else None),
+         'created_at': h.created_at.isoformat() if h.created_at else None}
+        for h in q.order_by(Hazard.created_at.desc()).limit(500).all()
+    ]})
+
+
+@app.route('/api/hazard/report', methods=['POST'])
+@login_required
+def api_hazard_report():
+    """Submit a new hazard. Auto-published; admin can hide later."""
+    # Accept JSON or multipart (when a photo is attached).
+    if request.content_type and request.content_type.startswith('multipart/'):
+        form = request.form
+        photo = request.files.get('photo')
+    else:
+        form = request.get_json(silent=True) or {}
+        photo = None
+
+    try:
+        lat = float(form.get('lat')); lng = float(form.get('lng'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'lat & lng required'}), 400
+
+    hazard_type = (form.get('type') or 'other').strip().lower()
+    if hazard_type not in ALLOWED_HAZARD_TYPES:
+        hazard_type = 'other'
+
+    description = (form.get('description') or '').strip()[:500] or None
+
+    photo_path = None
+    if photo and photo.filename and allowed_file(photo.filename):
+        filename = f"hazard_{uuid.uuid4().hex}_{secure_filename(photo.filename)}"
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        photo_path = f"uploads/{filename}"
+
+    h = Hazard(user_id=current_user.id, lat=lat, lng=lng,
+               hazard_type=hazard_type, description=description,
+               photo_path=photo_path)
+    db.session.add(h)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': h.id})
+
+
+@app.route('/admin/hazard/<int:hazard_id>/hide', methods=['POST'])
+def admin_hide_hazard(hazard_id):
+    # `admin_required` is defined later in the file; inline the same check here
+    # so we don't depend on forward-declared decorators.
+    if not session.get('admin_authenticated'):
+        return redirect(url_for('admin'))
+    h = db.session.get(Hazard, hazard_id)
+    if h:
+        h.hidden = True
+        db.session.commit()
+        flash('Hazard hidden.', 'success')
+    return redirect(url_for('admin'))
+
+
+# ─── Green route completion (points for walking/cycling) ────────────────────────
+
+@app.route('/api/route/complete', methods=['POST'])
+@login_required
+def api_route_complete():
+    """Award eco-points for a completed walking/cycling route. Caps per-day total
+    from routing at DAILY_ROUTE_POINTS_CAP to prevent farming."""
+    form = request.form if (request.content_type or '').startswith('multipart/') \
+           else (request.get_json(silent=True) or {})
+    try:
+        distance_m = float(form.get('distance_m', 0))
+    except (TypeError, ValueError):
+        distance_m = 0.0
+    mode = (form.get('mode') or 'walk').lower()
+    if mode not in POINTS_PER_KM or distance_m < 200:
+        return jsonify({'ok': False, 'error': 'Route too short or invalid mode.'}), 400
+
+    try:
+        duration_s = float(form.get('duration_s', 0)) or None
+    except (TypeError, ValueError):
+        duration_s = None
+
+    # Cap remaining points for today from this user's prior route completions.
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_total = db.session.query(db.func.coalesce(db.func.sum(RouteCompletion.points_awarded), 0)) \
+                            .filter(RouteCompletion.user_id == current_user.id,
+                                    RouteCompletion.created_at >= today_start).scalar() or 0
+    remaining = max(0, DAILY_ROUTE_POINTS_CAP - int(today_total))
+    if remaining <= 0:
+        return jsonify({'ok': False, 'error': 'Daily route reward cap reached. Try again tomorrow.'}), 200
+
+    earned = min(remaining, int(round(distance_m / 1000.0 * POINTS_PER_KM[mode])))
+    if earned <= 0:
+        return jsonify({'ok': False, 'error': 'Route too short to earn points.'}), 200
+
+    photo_path = None
+    photo = request.files.get('photo') if request.files else None
+    if photo and photo.filename and allowed_file(photo.filename):
+        filename = f"route_{uuid.uuid4().hex}_{secure_filename(photo.filename)}"
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        photo_path = f"uploads/{filename}"
+
+    rc = RouteCompletion(user_id=current_user.id, mode=mode,
+                         distance_m=distance_m, duration_s=duration_s,
+                         points_awarded=earned, photo_path=photo_path)
+    db.session.add(rc)
+    current_user.points += earned
+    update_streak(current_user)
+    new_badges = check_and_award_badges(current_user)
+    db.session.commit()
+
+    return jsonify({'ok': True, 'points_awarded': earned,
+                    'total_points': current_user.points,
+                    'remaining_today': max(0, DAILY_ROUTE_POINTS_CAP - int(today_total) - earned),
+                    'new_badges': [{'name': b.name, 'icon': b.icon} for b in new_badges]})
 
 
 @app.route('/leaderboard')
@@ -806,8 +1089,10 @@ def admin():
     templates = TaskTemplate.query.order_by(TaskTemplate.category, TaskTemplate.id).all()
     completions = (AssignedTask.query.filter_by(verified=True)
                    .order_by(AssignedTask.completed_at.desc()).limit(50).all())
+    hazards = (Hazard.query.filter_by(hidden=False)
+               .order_by(Hazard.created_at.desc()).limit(100).all())
     return render_template('admin.html', authenticated=True, users=users,
-                           templates=templates, completions=completions)
+                           templates=templates, completions=completions, hazards=hazards)
 
 
 @app.route('/admin/template/add', methods=['POST'])

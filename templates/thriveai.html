@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 {% extends "base.html" %}
 {% block title %}ThriveAI{% endblock %}
 
@@ -5,11 +6,11 @@
 <div class="thriveai-page">
 
   <div class="thriveai-page-hero">
-    <div class="thriveai-hero-avatar">🌱</div>
+    <div class="thriveai-hero-avatar">{{ icon('sparkles', 22) }}</div>
     <div>
       <h1 class="thriveai-hero-name">ThriveAI</h1>
       <p class="thriveai-hero-tag">
-        {{ 'Your AI guide to a greener Burgas' if lang == 'en' else 'Твоят AI помощник за по-зелен Бургас' }}
+        {{ 'Your AI sustainability guide for Burgas' if lang == 'en' else 'Твоят AI помощник за устойчивост в Бургас' }}
       </p>
     </div>
   </div>
@@ -25,7 +26,7 @@
       {{ "Give me a recycling tip" if lang == 'en' else 'Дай ми съвет за рециклиране' }}
     </button>
     <button class="thriveai-chip" onclick="ThriveAI.suggest(this)">
-      {{ "What can I buy in the Shop?" if lang == 'en' else 'Какво мога да купя в Магазина?' }}
+      {{ "What can I redeem?" if lang == 'en' else 'Какво мога да получа?' }}
     </button>
   </div>
 
@@ -34,8 +35,8 @@
   <form class="thriveai-input-bar thriveai-input-bar-page" id="thriveai-form"
         onsubmit="return ThriveAI.send(event)">
     <input type="text" id="thriveai-input" class="thriveai-input" autocomplete="off"
-           placeholder="{{ 'Ask me anything about going green…' if lang == 'en' else 'Питай ме за зелен живот…' }}">
-    <button type="submit" class="thriveai-send-btn" aria-label="Send">➤</button>
+           placeholder="{{ 'Ask anything about sustainable living…' if lang == 'en' else 'Питай за устойчив живот…' }}">
+    <button type="submit" class="thriveai-send-btn" aria-label="Send">{{ icon('send', 16) }}</button>
   </form>
 
 </div>

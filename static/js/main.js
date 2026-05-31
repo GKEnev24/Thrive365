@@ -1,3 +1,13 @@
+// ── SVG icon strings (inline, no DOM lookup) ─────────────────────────────────
+const SVG = {
+  check:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  x:        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  alert:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg>',
+  info:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  pin:      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>',
+  camera:   '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+};
+
 // ── Toast notifications ──────────────────────────────────────────────────────
 function showToast(message, type = 'default', duration = 3500) {
   let container = document.querySelector('.toast-container');
@@ -8,7 +18,7 @@ function showToast(message, type = 'default', duration = 3500) {
   }
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️' };
+  const icons = { success: SVG.check, error: SVG.x, warning: SVG.alert, default: SVG.info };
   toast.innerHTML = `<span>${icons[type] || icons.default}</span><span>${message}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
@@ -20,13 +30,11 @@ function showToast(message, type = 'default', duration = 3500) {
 }
 
 // ── Language switcher ────────────────────────────────────────────────────────
+// The hidden input is already pre-set to the TARGET language by the server
+// (the opposite of what's currently active), so we just submit the form.
 function switchLanguage() {
   const form = document.getElementById('lang-form');
-  if (form) {
-    const input = form.querySelector('input[name="lang"]');
-    input.value = input.value === 'en' ? 'bg' : 'en';
-    form.submit();
-  }
+  if (form) form.submit();
 }
 
 // ── Modal management ─────────────────────────────────────────────────────────
@@ -93,12 +101,12 @@ function startGPSCheck() {
   const nextBtn = document.getElementById('gps-next-btn');
 
   statusEl.innerHTML = '<strong>Checking your location…</strong><span>Please allow location access</span>';
-  iconEl.textContent = '📍';
+  iconEl.innerHTML = SVG.pin;
   nextBtn.disabled = true;
 
   if (!navigator.geolocation) {
-    statusEl.innerHTML = '<strong>GPS not available</strong><span class="gps-checking">Proceeding without location check</span>';
-    iconEl.textContent = '⚠️';
+    statusEl.innerHTML = '<strong>GPS not available</strong><span>Proceeding without location check</span>';
+    iconEl.innerHTML = SVG.alert;
     nextBtn.disabled = false;
     return;
   }
@@ -106,21 +114,20 @@ function startGPSCheck() {
   navigator.geolocation.getCurrentPosition(
     pos => {
       gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      // Burgas bounding box: roughly 42.4–42.7 N, 27.3–27.6 E
       const inBurgas = gpsCoords.lat > 42.0 && gpsCoords.lat < 43.0 &&
                        gpsCoords.lng > 27.0 && gpsCoords.lng < 28.0;
       if (inBurgas) {
-        statusEl.innerHTML = '<strong class="gps-ok">Location verified ✓</strong><span>You\'re in Burgas!</span>';
-        iconEl.textContent = '✅';
+        statusEl.innerHTML = '<strong class="gps-ok">Location verified</strong><span>You\'re in Burgas</span>';
+        iconEl.innerHTML = SVG.check;
       } else {
-        statusEl.innerHTML = '<strong>Location detected</strong><span class="gps-checking">Outside Burgas – continuing anyway</span>';
-        iconEl.textContent = '📍';
+        statusEl.innerHTML = '<strong>Location detected</strong><span>Outside Burgas — continuing</span>';
+        iconEl.innerHTML = SVG.pin;
       }
       nextBtn.disabled = false;
     },
     () => {
-      statusEl.innerHTML = '<strong>Location unavailable</strong><span class="gps-checking">Proceeding without GPS check</span>';
-      iconEl.textContent = '⚠️';
+      statusEl.innerHTML = '<strong>Location unavailable</strong><span>Proceeding without GPS check</span>';
+      iconEl.innerHTML = SVG.alert;
       nextBtn.disabled = false;
     },
     { timeout: 8000, maximumAge: 60000 }
@@ -212,10 +219,13 @@ async function submitTaskCompletion() {
     const data = await resp.json();
 
     showModalStep('step-result');
+    const iconWrap = document.getElementById('result-icon-wrap');
+    const iconSvg  = document.getElementById('result-icon-svg');
 
     if (data.success && data.verified) {
-      document.getElementById('result-icon').textContent = '🎉';
-      document.getElementById('result-title').textContent = 'Task Verified!';
+      iconWrap.classList.remove('error'); iconWrap.classList.add('success');
+      iconSvg.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      document.getElementById('result-title').textContent = 'Task verified';
       document.getElementById('result-subtitle').textContent = data.feedback;
 
       const pointsEl = document.getElementById('result-points');
@@ -226,37 +236,39 @@ async function submitTaskCompletion() {
         const badgesEl = document.getElementById('new-badges');
         badgesEl.classList.remove('hidden');
         badgesEl.innerHTML = data.new_badges.map(b =>
-          `<div class="new-badge-chip">${b.icon} ${b.name}</div>`
+          `<div class="new-badge-chip">${SVG.check}${b.name}</div>`
         ).join('');
       }
 
-      // Update header points
       updatePointsDisplay(data.total_points);
 
-      // Mark task card as completed
       const taskCard = document.querySelector(`[data-task-id="${currentTaskId}"]`);
       if (taskCard) {
         taskCard.classList.add('task-completed');
         const btn = taskCard.querySelector('.complete-btn');
         if (btn) {
-          btn.outerHTML = `<div class="task-done-badge"><span>✅</span><span>Completed</span></div>`;
+          btn.outerHTML = `<div class="task-done-badge">${SVG.check}<span>Completed</span></div>`;
         }
         updateTasksProgress();
       }
 
     } else {
-      document.getElementById('result-icon').textContent = '📸';
-      document.getElementById('result-title').textContent = 'Try Again';
+      iconWrap.classList.remove('success'); iconWrap.classList.add('error');
+      iconSvg.innerHTML = SVG.camera;
+      document.getElementById('result-title').textContent = 'Try again';
       document.getElementById('result-subtitle').textContent =
-        data.feedback || data.message || 'Please upload a photo that shows your eco-action more clearly.';
+        data.feedback || data.message || 'Please upload a photo that more clearly shows your action.';
       document.getElementById('result-points').classList.add('hidden');
       document.getElementById('new-badges').classList.add('hidden');
     }
 
   } catch (err) {
     showModalStep('step-result');
-    document.getElementById('result-icon').textContent = '❌';
-    document.getElementById('result-title').textContent = 'Upload Error';
+    const iconWrap = document.getElementById('result-icon-wrap');
+    const iconSvg  = document.getElementById('result-icon-svg');
+    iconWrap.classList.remove('success'); iconWrap.classList.add('error');
+    iconSvg.innerHTML = SVG.x;
+    document.getElementById('result-title').textContent = 'Upload error';
     document.getElementById('result-subtitle').textContent = 'Something went wrong. Please try again.';
     document.getElementById('result-points').classList.add('hidden');
     document.getElementById('new-badges').classList.add('hidden');
@@ -317,8 +329,7 @@ async function redeemPrize(prizeId, prizeTitle) {
       const balanceEl = document.querySelector('.shop-balance-points');
       if (balanceEl) balanceEl.textContent = data.remaining_points;
 
-      // Change button
-      if (btn) btn.outerHTML = `<button class="prize-redeemed-btn">✓ Redeemed</button>`;
+      if (btn) btn.outerHTML = `<button class="prize-redeemed-btn">${SVG.check} Redeemed</button>`;
     } else {
       showToast(data.message || 'Redemption failed.', 'error');
       if (btn) { btn.disabled = false; btn.textContent = 'Redeem'; }
