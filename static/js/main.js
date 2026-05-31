@@ -248,7 +248,7 @@ async function submitTaskCompletion() {
       document.getElementById('result-icon').textContent = '📸';
       document.getElementById('result-title').textContent = 'Try Again';
       document.getElementById('result-subtitle').textContent =
-        data.feedback || 'Please upload a photo that shows your eco-action more clearly.';
+        data.feedback || data.message || 'Please upload a photo that shows your eco-action more clearly.';
       document.getElementById('result-points').classList.add('hidden');
       document.getElementById('new-badges').classList.add('hidden');
     }

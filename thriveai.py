@@ -6,9 +6,11 @@ and the eco-task photo verifier. It is designed to be SMART and FREE:
 
     Provider chain (tried in order, first one that works wins):
 
-        1. Gemini   — Google's free-tier API (smart + multimodal). Set GEMINI_API_KEY.
-        2. Ollama   — a local model on your own GPU (offline fallback). No key, no quota.
-        3. Heuristic — built-in rule-based brain (always works, zero deps).
+        1. Qwen 2.5 — runs EMBEDDED inside this process via llama-cpp-python.
+                      The GGUF weights are downloaded once from Hugging Face and
+                      cached locally, then loaded straight into the app — no
+                      separate server, no API key, no quota. Just `pip install`.
+        2. Heuristic — built-in rule-based brain (always works, zero deps).
 
 The rest of the app never talks to a provider directly — it only calls
 `thriveai.chat(...)` and `thriveai.verify_image(...)`. Swapping or adding a
@@ -16,29 +18,52 @@ provider later means editing this file and nothing else.
 
 Configuration (all optional — sensible defaults, everything degrades gracefully):
 
-    GEMINI_API_KEY        free key from https://aistudio.google.com/apikey
-    GEMINI_MODEL          default: gemini-2.0-flash
-    OLLAMA_URL            default: http://localhost:11434
-    OLLAMA_MODEL          default: llama3.1          (chat)
-    OLLAMA_VISION_MODEL   default: llava             (image verification)
+    QWEN_MODEL_REPO       HF repo for the chat GGUF
+                          (default: Qwen/Qwen2.5-3B-Instruct-GGUF)
+    QWEN_MODEL_FILE       GGUF filename within that repo
+                          (default: qwen2.5-3b-instruct-q4_k_m.gguf)
+    QWEN_VISION_REPO      HF repo for the vision GGUF + mmproj
+                          (default: ggml-org/Qwen2.5-VL-3B-Instruct-GGUF)
+    QWEN_VISION_FILE      vision GGUF filename
+                          (default: Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf)
+    QWEN_VISION_MMPROJ    multimodal projector filename
+                          (default: mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf)
+    QWEN_CTX              context window in tokens (default: 4096)
+    QWEN_GPU_LAYERS       layers to offload to GPU, -1 = all (default: 0 = CPU)
 """
 
 import os
 import json
-import time
 import base64
+import threading
+import traceback
 
-import requests
+# Hugging Face's native Xet downloader (hf_xet) can hang at 0% on some setups —
+# notably Python 3.14 — leaving model downloads stuck forever. Default to the
+# classic, reliable LFS downloader. Set HF_HUB_DISABLE_XET=0 to opt back into Xet.
+os.environ.setdefault('HF_HUB_DISABLE_XET', '1')
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash').strip()
-GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
+QWEN_MODEL_REPO = os.environ.get('QWEN_MODEL_REPO', 'Qwen/Qwen2.5-3B-Instruct-GGUF').strip()
+QWEN_MODEL_FILE = os.environ.get(
+    'QWEN_MODEL_FILE', 'qwen2.5-3b-instruct-q4_k_m.gguf').strip()
 
-OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://localhost:11434').rstrip('/')
-OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3.1').strip()
-OLLAMA_VISION_MODEL = os.environ.get('OLLAMA_VISION_MODEL', 'llava').strip()
+QWEN_VISION_REPO = os.environ.get(
+    'QWEN_VISION_REPO', 'ggml-org/Qwen2.5-VL-3B-Instruct-GGUF').strip()
+QWEN_VISION_FILE = os.environ.get(
+    'QWEN_VISION_FILE', 'Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf').strip()
+QWEN_VISION_MMPROJ = os.environ.get(
+    'QWEN_VISION_MMPROJ', 'mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf').strip()
+
+try:
+    QWEN_CTX = int(os.environ.get('QWEN_CTX', '4096'))
+except ValueError:
+    QWEN_CTX = 4096
+try:
+    QWEN_GPU_LAYERS = int(os.environ.get('QWEN_GPU_LAYERS', '0'))
+except ValueError:
+    QWEN_GPU_LAYERS = 0
 
 # Photo verification strictness: if the model passes a photo but reports a confidence
 # below this (0-100), we override it to a rejection. Higher = stricter. 0 disables.
@@ -46,11 +71,6 @@ try:
     VERIFY_MIN_CONFIDENCE = int(os.environ.get('VERIFY_MIN_CONFIDENCE', '50'))
 except ValueError:
     VERIFY_MIN_CONFIDENCE = 50
-
-# Network timeouts (seconds). Generous enough for a local GPU model to think.
-GEMINI_TIMEOUT = 30
-OLLAMA_TIMEOUT = 120
-_AVAILABILITY_TTL = 30  # re-probe a provider's reachability at most this often
 
 # How many past turns of conversation to keep as context.
 MAX_HISTORY_TURNS = 12
@@ -60,33 +80,119 @@ MEDIA_TYPES = {
     'gif': 'image/gif', 'webp': 'image/webp',
 }
 
-# ── Small availability cache (avoids hammering an unreachable Ollama) ──────────
+# ── Embedded Qwen 2.5 (llama-cpp-python) ──────────────────────────────────────
+#
+# Models load lazily on first use and stay resident. Loading is guarded by a lock
+# so concurrent requests don't trigger two downloads/loads. If llama-cpp-python
+# isn't installed or a model can't be loaded, the relevant feature degrades to the
+# heuristic brain instead of crashing — the app always keeps working.
 
-_ollama_state = {'ok': False, 'checked_at': 0.0}
+_chat_model = None          # llama_cpp.Llama for text chat
+_vision_model = None        # llama_cpp.Llama (+ mmproj) for image verification
+_chat_failed = False        # don't retry a load that already hard-failed
+_vision_failed = False
+_load_lock = threading.Lock()
 
 
-def _ollama_available():
-    """Return True if a local Ollama server is reachable. Cached briefly."""
-    now = time.time()
-    if now - _ollama_state['checked_at'] < _AVAILABILITY_TTL:
-        return _ollama_state['ok']
-    ok = False
+def _llama_import():
+    """Import llama_cpp lazily; return the module or None if unavailable."""
     try:
-        r = requests.get(f'{OLLAMA_URL}/api/tags', timeout=2)
-        ok = r.status_code == 200
-    except requests.RequestException:
-        ok = False
-    _ollama_state.update(ok=ok, checked_at=now)
-    return ok
+        import llama_cpp  # noqa: PLC0415 — optional heavy dep, imported on demand
+        return llama_cpp
+    except ImportError:
+        return None
+
+
+def _get_chat_model(block=True):
+    """Return the embedded Qwen 2.5 chat model, loading it if needed. None on
+    failure or, when block=False, if it isn't loaded yet — request handlers pass
+    block=False so they fall back to the heuristic brain instead of waiting on a
+    multi-minute first-run download. The background warmup thread does the load."""
+    global _chat_model, _chat_failed
+    if _chat_model is not None or _chat_failed:
+        return _chat_model
+    if not block:
+        return None
+    with _load_lock:
+        if _chat_model is not None or _chat_failed:
+            return _chat_model
+        llama_cpp = _llama_import()
+        if llama_cpp is None:
+            print('[ThriveAI] llama-cpp-python not installed — using heuristic brain. '
+                  'Run: pip install -r requirements.txt')
+            _chat_failed = True
+            return None
+        try:
+            print(f'[ThriveAI] Loading Qwen 2.5 chat model ({QWEN_MODEL_FILE})… '
+                  'first run downloads the weights from Hugging Face.')
+            _chat_model = llama_cpp.Llama.from_pretrained(
+                repo_id=QWEN_MODEL_REPO,
+                filename=QWEN_MODEL_FILE,
+                n_ctx=QWEN_CTX,
+                n_gpu_layers=QWEN_GPU_LAYERS,
+                verbose=False,
+            )
+            print('[ThriveAI] Qwen 2.5 chat model ready. 🌱')
+        except Exception as e:  # noqa: BLE001 — any load error must not crash the app
+            print(f'[ThriveAI] could not load Qwen chat model, using heuristic: {e}')
+            _chat_failed = True
+        return _chat_model
+
+
+def _get_vision_model(block=True):
+    """Return the embedded Qwen 2.5-VL vision model, loading it if needed. None on
+    failure or, when block=False, if it isn't loaded yet (see _get_chat_model)."""
+    global _vision_model, _vision_failed
+    if _vision_model is not None or _vision_failed:
+        return _vision_model
+    if not block:
+        return None
+    with _load_lock:
+        if _vision_model is not None or _vision_failed:
+            return _vision_model
+        llama_cpp = _llama_import()
+        if llama_cpp is None:
+            _vision_failed = True
+            return None
+        try:
+            from llama_cpp.llama_chat_format import Qwen25VLChatHandler
+            from huggingface_hub import hf_hub_download
+        except ImportError as e:
+            print(f'[ThriveAI] vision deps unavailable, photos auto-accepted: {e}')
+            _vision_failed = True
+            return None
+        try:
+            print(f'[ThriveAI] Loading Qwen 2.5-VL vision model ({QWEN_VISION_FILE})…')
+            mmproj_path = hf_hub_download(QWEN_VISION_REPO, QWEN_VISION_MMPROJ)
+            handler = Qwen25VLChatHandler(clip_model_path=mmproj_path, verbose=False)
+            _vision_model = llama_cpp.Llama.from_pretrained(
+                repo_id=QWEN_VISION_REPO,
+                filename=QWEN_VISION_FILE,
+                chat_handler=handler,
+                n_ctx=max(QWEN_CTX, 4096),
+                n_gpu_layers=QWEN_GPU_LAYERS,
+                verbose=False,
+            )
+            print('[ThriveAI] Qwen 2.5-VL vision model ready. 📸')
+        except Exception as e:  # noqa: BLE001
+            print(f'[ThriveAI] could not load Qwen vision model, photos auto-accepted: {e}')
+            _vision_failed = True
+        return _vision_model
+
+
+def warmup(vision=False):
+    """Pre-load the model(s) so the first user request isn't slow. Safe to call
+    from a background thread at app startup; never raises."""
+    _get_chat_model()
+    if vision:
+        _get_vision_model()
 
 
 def active_engine():
-    """Human-readable name of the engine that would currently handle a request."""
-    if GEMINI_API_KEY:
-        return 'gemini'
-    if _ollama_available():
-        return 'ollama'
-    return 'heuristic'
+    """Name of the engine that would handle a request RIGHT NOW (non-blocking).
+    While the model is still loading/downloading, this is 'heuristic' — requests
+    use the heuristic brain until the background warmup makes Qwen resident."""
+    return 'qwen' if _chat_model is not None else 'heuristic'
 
 
 # ── System prompt (ThriveAI's personality + live app knowledge) ───────────────
@@ -156,116 +262,61 @@ IMPORTANT: Always write your reply in {reply_lang}, regardless of the language o
     return base
 
 
-# ── Gemini provider ───────────────────────────────────────────────────────────
+# ── Embedded Qwen 2.5 inference helpers ───────────────────────────────────────
 
-# Transient HTTP statuses worth retrying (free-tier rate limits / brief overload).
-_RETRYABLE_STATUS = {403, 429, 500, 503}
-
-
-def _gemini_request(payload, max_retries=2):
-    url = f'{GEMINI_ENDPOINT}/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}'
-    for attempt in range(max_retries + 1):
-        r = requests.post(url, json=payload, timeout=GEMINI_TIMEOUT)
-        if r.status_code in _RETRYABLE_STATUS and attempt < max_retries:
-            # brief backoff, then retry — the free tier throttles short bursts
-            time.sleep(1.2 * (attempt + 1))
-            continue
-        r.raise_for_status()
-        data = r.json()
-        candidates = data.get('candidates') or []
-        if not candidates:
-            raise ValueError(f'Gemini returned no candidates: {data}')
-        parts = candidates[0].get('content', {}).get('parts', [])
-        text = ''.join(p.get('text', '') for p in parts).strip()
-        if not text:
-            raise ValueError('Gemini returned empty text')
-        return text
-    # exhausted retries on a retryable status — surface it for graceful fallback
-    r.raise_for_status()
-
-
-def _gemini_chat(system, history, message):
-    contents = []
-    for turn in history:
-        role = 'model' if turn.get('role') == 'assistant' else 'user'
-        contents.append({'role': role, 'parts': [{'text': turn.get('content', '')}]})
-    contents.append({'role': 'user', 'parts': [{'text': message}]})
-    payload = {
-        'system_instruction': {'parts': [{'text': system}]},
-        'contents': contents,
-        'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 1500},
-    }
-    return _gemini_request(payload)
-
-
-def _gemini_json(prompt, temperature=0.6, max_tokens=2000):
-    """Single-shot Gemini call that returns parsed JSON (forced JSON output)."""
-    payload = {
-        'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
-        'generationConfig': {
-            'temperature': temperature,
-            'maxOutputTokens': max_tokens,
-            'responseMimeType': 'application/json',
-            'thinkingConfig': {'thinkingBudget': 0},
-        },
-    }
-    return json.loads(_gemini_request(payload))
-
-
-def _gemini_vision(prompt, image_b64, mime):
-    payload = {
-        'contents': [{
-            'role': 'user',
-            'parts': [
-                {'inline_data': {'mime_type': mime, 'data': image_b64}},
-                {'text': prompt},
-            ],
-        }],
-        'generationConfig': {
-            'temperature': 0.1,
-            'maxOutputTokens': 800,
-            # Force a clean JSON object — no prose, no markdown fences.
-            'responseMimeType': 'application/json',
-            # Disable "thinking" so the token budget isn't consumed before the
-            # answer (gemini-2.5-flash thinks by default, which truncated output).
-            'thinkingConfig': {'thinkingBudget': 0},
-        },
-    }
-    return _gemini_request(payload)
-
-
-# ── Ollama provider (local) ───────────────────────────────────────────────────
-
-def _ollama_chat(system, history, message):
+def _qwen_chat(system, history, message):
+    model = _get_chat_model()
+    if model is None:
+        raise RuntimeError('Qwen chat model unavailable')
     messages = [{'role': 'system', 'content': system}]
     for turn in history:
         role = 'assistant' if turn.get('role') == 'assistant' else 'user'
         messages.append({'role': role, 'content': turn.get('content', '')})
     messages.append({'role': 'user', 'content': message})
-    r = requests.post(f'{OLLAMA_URL}/api/chat', timeout=OLLAMA_TIMEOUT, json={
-        'model': OLLAMA_MODEL,
-        'messages': messages,
-        'stream': False,
-        'options': {'temperature': 0.7},
-    })
-    r.raise_for_status()
-    text = r.json().get('message', {}).get('content', '').strip()
+    out = model.create_chat_completion(
+        messages=messages, temperature=0.7, max_tokens=1500)
+    text = out['choices'][0]['message']['content'].strip()
     if not text:
-        raise ValueError('Ollama returned empty content')
+        raise ValueError('Qwen returned empty content')
     return text
 
 
-def _ollama_vision(prompt, image_b64):
-    r = requests.post(f'{OLLAMA_URL}/api/chat', timeout=OLLAMA_TIMEOUT, json={
-        'model': OLLAMA_VISION_MODEL,
-        'messages': [{'role': 'user', 'content': prompt, 'images': [image_b64]}],
-        'stream': False,
-        'options': {'temperature': 0.1},
-    })
-    r.raise_for_status()
-    text = r.json().get('message', {}).get('content', '').strip()
+def _qwen_json(prompt, temperature=0.6, max_tokens=2000):
+    """Single-shot Qwen call that returns parsed JSON (forced JSON output)."""
+    model = _get_chat_model()
+    if model is None:
+        raise RuntimeError('Qwen chat model unavailable')
+    out = model.create_chat_completion(
+        messages=[{'role': 'user', 'content': prompt}],
+        temperature=temperature,
+        max_tokens=max_tokens,
+        response_format={'type': 'json_object'},
+    )
+    text = out['choices'][0]['message']['content'].strip()
     if not text:
-        raise ValueError('Ollama vision returned empty content')
+        raise ValueError('Qwen returned empty content')
+    return json.loads(text)
+
+
+def _qwen_vision(prompt, image_b64, mime):
+    model = _get_vision_model()
+    if model is None:
+        raise RuntimeError('Qwen vision model unavailable')
+    data_uri = f'data:{mime};base64,{image_b64}'
+    out = model.create_chat_completion(
+        messages=[{
+            'role': 'user',
+            'content': [
+                {'type': 'image_url', 'image_url': {'url': data_uri}},
+                {'type': 'text', 'text': prompt},
+            ],
+        }],
+        temperature=0.1,
+        max_tokens=300,
+    )
+    text = out['choices'][0]['message']['content'].strip()
+    if not text:
+        raise ValueError('Qwen vision returned empty content')
     return text
 
 
@@ -338,10 +389,12 @@ def _heuristic_chat(message, lang, context=None):
     if bg:
         return ("В момента работя в опростен офлайн режим, затова мога да помагам най-вече с "
                 "Thrive365 — задачи, точки, значки, награди и еко-съвети. За пълни отговори на "
-                "всякакви въпроси, свържи Gemini API ключ (безплатен) в .env. С какво да помогна? 🌱")
+                "всякакви въпроси, инсталирай зависимостите (pip install -r requirements.txt), "
+                "за да заредиш Qwen 2.5. С какво да помогна? 🌱")
     return ("I'm running in a simplified offline mode right now, so I can mainly help with "
             "Thrive365 — tasks, points, badges, rewards, and eco-tips. To answer any question "
-            "fully, connect a free Gemini API key in .env. How can I help? 🌱")
+            "fully, install the dependencies (pip install -r requirements.txt) so Qwen 2.5 "
+            "can load. How can I help? 🌱")
 
 
 # ── Public API: chat ──────────────────────────────────────────────────────────
@@ -349,23 +402,17 @@ def _heuristic_chat(message, lang, context=None):
 def chat(message, history=None, lang='en', context=None):
     """Generate a ThriveAI reply.
 
-    Returns a dict: {'reply': str, 'engine': 'gemini'|'ollama'|'heuristic'}.
+    Returns a dict: {'reply': str, 'engine': 'qwen'|'heuristic'}.
     Never raises — always degrades to the heuristic brain.
     """
     history = (history or [])[-MAX_HISTORY_TURNS:]
     system = build_system_prompt(lang, context)
 
-    if GEMINI_API_KEY:
+    if _get_chat_model(block=False) is not None:
         try:
-            return {'reply': _gemini_chat(system, history, message), 'engine': 'gemini'}
-        except Exception as e:  # noqa: BLE001 — never let a provider error reach the user
-            print(f'[ThriveAI] Gemini chat failed, falling back: {e}')
-
-    if _ollama_available():
-        try:
-            return {'reply': _ollama_chat(system, history, message), 'engine': 'ollama'}
+            return {'reply': _qwen_chat(system, history, message), 'engine': 'qwen'}
         except Exception as e:  # noqa: BLE001
-            print(f'[ThriveAI] Ollama chat failed, falling back: {e}')
+            print(f'[ThriveAI] Qwen chat failed, falling back: {e}')
 
     return {'reply': _heuristic_chat(message, lang, context), 'engine': 'heuristic'}
 
@@ -381,7 +428,7 @@ def tailor_daily_tasks(profile, tasks, lang='en'):
     text personalised. ALWAYS safe: if no AI provider or anything goes wrong,
     the original curated tasks are returned unchanged.
     """
-    if not GEMINI_API_KEY or not tasks:
+    if not tasks or _get_chat_model(block=False) is None:
         return tasks
 
     compact = [{
@@ -405,11 +452,13 @@ Rules for EACH task:
 - Keep titles short (max ~8 words). Keep descriptions 1-2 sentences.
 - Provide BOTH English and Bulgarian versions.
 
-Return ONLY a JSON array of the same length and order, each item:
-{{"title_en": "...", "title_bg": "...", "description_en": "...", "description_bg": "..."}}"""
+Return ONLY a JSON object with a "tasks" array of the same length and order, each item:
+{{"tasks": [{{"title_en": "...", "title_bg": "...", "description_en": "...", "description_bg": "..."}}]}}"""
 
     try:
-        data = _gemini_json(prompt)
+        data = _qwen_json(prompt)
+        if isinstance(data, dict):
+            data = data.get('tasks')
         if not isinstance(data, list):
             return tasks
         out = []
@@ -513,28 +562,46 @@ def verify_image(task, photo_path, lang='en'):
     """
     prompt = _verification_prompt(task, lang)
     try:
-        with open(photo_path, 'rb') as f:
-            image_b64 = base64.standard_b64encode(f.read()).decode('utf-8')
-    except OSError as e:
-        print(f'[ThriveAI] could not read photo: {e}')
+        image_b64, mime = _prepare_image(photo_path)
+    except Exception as e:  # noqa: BLE001 — corrupt/unsupported image must not 500
+        print(f'[ThriveAI] could not read/process photo: {e}')
         return _accept_fallback(lang)
 
-    ext = photo_path.lower().rsplit('.', 1)[-1]
-    mime = MEDIA_TYPES.get(ext, 'image/jpeg')
-
-    if GEMINI_API_KEY:
+    if _get_vision_model(block=False) is not None:
         try:
-            return _parse_verification(_gemini_vision(prompt, image_b64, mime))
+            return _parse_verification(_qwen_vision(prompt, image_b64, mime))
         except Exception as e:  # noqa: BLE001
-            print(f'[ThriveAI] Gemini vision failed, falling back: {e}')
-
-    if _ollama_available():
-        try:
-            return _parse_verification(_ollama_vision(prompt, image_b64))
-        except Exception as e:  # noqa: BLE001
-            print(f'[ThriveAI] Ollama vision failed, falling back: {e}')
+            traceback.print_exc()
+            print(f'[ThriveAI] Qwen vision failed, falling back: {e}')
 
     return _accept_fallback(lang)
+
+
+# Longest edge (px) we feed the vision model. A phone photo is ~3000px, which the
+# model expands into a huge number of image tokens — minutes of CPU inference. A
+# bike vs. a shower is just as recognisable at 768px, and it runs in seconds.
+VERIFY_MAX_EDGE = 768
+
+
+def _prepare_image(photo_path):
+    """Downscale + re-encode the photo so vision inference is fast. Returns
+    (base64_str, mime). Falls back to the raw file if Pillow isn't available."""
+    try:
+        import io
+        from PIL import Image, ImageOps
+    except ImportError:
+        ext = photo_path.lower().rsplit('.', 1)[-1]
+        with open(photo_path, 'rb') as f:
+            return base64.standard_b64encode(f.read()).decode('utf-8'), \
+                MEDIA_TYPES.get(ext, 'image/jpeg')
+
+    with Image.open(photo_path) as img:
+        img = ImageOps.exif_transpose(img)  # honour camera orientation
+        img = img.convert('RGB')
+        img.thumbnail((VERIFY_MAX_EDGE, VERIFY_MAX_EDGE))  # in-place, keeps aspect
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=85)
+    return base64.standard_b64encode(buf.getvalue()).decode('utf-8'), 'image/jpeg'
 
 
 def _accept_fallback(lang):

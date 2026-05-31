@@ -6,3 +6,8 @@ requests>=2.31.0
 Pillow>=10.0.0
 python-dotenv>=1.0.0
 Werkzeug>=3.0.0
+
+# Embedded Qwen 2.5 (runs locally inside the app — no separate server, no API key).
+# Weights are pulled from Hugging Face on first run and cached.
+llama-cpp-python>=0.3.2
+huggingface-hub>=0.24.0
