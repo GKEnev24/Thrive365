@@ -23,7 +23,26 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "PowerShell(Get-CimInstance Win32_VideoController | Select-Object Name, @{N='VRAM_GB';E={[math]::Round\\($_.AdapterRAM/1GB,1\\)}}, DriverVersion; Write-Output \"---CPU/RAM---\"; Get-CimInstance Win32_ComputerSystem | Select-Object @{N='RAM_GB';E={[math]::Round\\($_.TotalPhysicalMemory/1GB,1\\)}}; Write-Output \"---nvidia-smi---\"; if \\(Get-Command nvidia-smi -ErrorAction SilentlyContinue\\) { nvidia-smi --query-gpu=name,memory.total --format=csv } else { Write-Output \"nvidia-smi not found\" })",
-      "PowerShell(cd D:\\\\BurgasProject\\\\Thrive365; $env:PYTHONIOENCODING=\"utf-8\"; & .\\\\.venv\\\\Scripts\\\\python.exe _smoke_test.py)"
+      "PowerShell(cd D:\\\\BurgasProject\\\\Thrive365; $env:PYTHONIOENCODING=\"utf-8\"; & .\\\\.venv\\\\Scripts\\\\python.exe _smoke_test.py)",
+      "Bash(python -c \"import thriveai; print\\('engine:', thriveai.active_engine\\(\\)\\); print\\('chat model:', thriveai.OLLAMA_MODEL\\); print\\('vision model:', thriveai.OLLAMA_VISION_MODEL\\)\")",
+      "Bash(git checkout *)",
+      "Bash(git restore *)",
+      "Bash(git stash *)",
+      "Bash(git commit -m '@ *)",
+      "Bash(ollama --version)",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "Bash(python -c ' *)",
+      "Bash(python -m py_compile F:/Thrive365/app.py F:/Thrive365/thriveai.py)",
+      "Bash(python -c \"import hf_transfer; print\\('hf_transfer installed:', hf_transfer.__version__\\)\")",
+      "Bash(python -c \"import os; print\\('HF_HUB_ENABLE_HF_TRANSFER=', os.environ.get\\('HF_HUB_ENABLE_HF_TRANSFER'\\)\\); print\\('HTTP_PROXY=', os.environ.get\\('HTTP_PROXY'\\)\\); print\\('HTTPS_PROXY=', os.environ.get\\('HTTPS_PROXY'\\)\\)\")",
+      "Bash(python -c \"import urllib.request,time; t=time.time\\(\\); urllib.request.urlopen\\('https://huggingface.co', timeout=15\\); print\\('huggingface.co reachable in %.1fs' % \\(time.time\\(\\)-t\\)\\)\")",
+      "Bash(python -m pip install hf_xet)",
+      "Bash(python -m py_compile F:/Thrive365/thriveai.py)",
+      "Read(//c/Users/Galin/.cache/huggingface/**)",
+      "Bash(python -c \"import llama_cpp; print\\('llama_cpp', llama_cpp.__version__, 'imports OK'\\)\")",
+      "Bash(python -c \"from llama_cpp.llama_chat_format import Qwen25VLChatHandler; print\\('Qwen25VLChatHandler available'\\)\")",
+      "Bash(HF_HUB_DISABLE_XET=1 python -c \"from huggingface_hub import hf_hub_download; print\\(hf_hub_download\\('Qwen/Qwen2.5-3B-Instruct-GGUF','qwen2.5-3b-instruct-q4_k_m.gguf'\\)\\)\")",
+      "Bash(python -m py_compile F:/Thrive365/app.py)"
     ]
   }
 }

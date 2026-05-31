@@ -5,7 +5,9 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 
 from dotenv import load_dotenv
-load_dotenv()  # load .env (GEMINI_API_KEY, etc.) before anything reads os.environ
+load_dotenv()  # load .env (QWEN_* overrides, etc.) before anything reads os.environ
+
+import threading
 
 from flask import (Flask, render_template, redirect, url_for, session,
                    request, jsonify, flash)
@@ -23,7 +25,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'thrive365-dev-secret-key-change-i
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///thrive365.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # phone JPGs can exceed 16 MB
 
 db.init_app(app)
 
@@ -36,6 +38,39 @@ oauth = OAuth(app)
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+
+# Warm up the embedded Qwen 2.5 model in the background, kicked off by the first
+# HTTP request rather than at import time. Flask's debug reloader runs two
+# processes (a watcher + the serving worker); only the worker handles requests,
+# so this fires exactly once — avoiding the double download / double 2 GB load
+# that happens if both processes warm up. The app stays usable while it loads:
+# ThriveAI falls back to the heuristic brain until the model is resident.
+_warmup_started = False
+_warmup_lock = threading.Lock()
+
+
+@app.errorhandler(413)
+def _too_large(_e):
+    # Return JSON (not Werkzeug's default HTML page) so the photo-upload frontend
+    # can show a real message instead of a generic "Upload Error".
+    return jsonify({
+        'success': False, 'verified': False,
+        'message': 'That photo is too large. Please upload an image under 32 MB.'
+    }), 413
+
+
+@app.before_request
+def _kickoff_warmup():
+    global _warmup_started
+    if _warmup_started:
+        return
+    with _warmup_lock:
+        if _warmup_started:
+            return
+        _warmup_started = True
+        threading.Thread(
+            target=thriveai.warmup, kwargs={'vision': True}, daemon=True).start()
+
 
 google = None
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
@@ -542,32 +577,41 @@ def complete_task(task_id):
     photo_path = os.path.join(upload_folder, filename)
     file.save(photo_path)
 
-    verified, feedback = thriveai.verify_image(at, photo_path, lang=get_lang())
-    at.ai_feedback = feedback
+    try:
+        verified, feedback = thriveai.verify_image(at, photo_path, lang=get_lang())
+        at.ai_feedback = feedback
 
-    if verified:
-        at.verified = True
-        at.photo_path = f"uploads/{filename}"
-        at.completed_at = datetime.utcnow()
-        current_user.points += at.points
-        update_streak(current_user)
-        new_badges = check_and_award_badges(current_user)
-        db.session.commit()
+        if verified:
+            at.verified = True
+            at.photo_path = f"uploads/{filename}"
+            at.completed_at = datetime.utcnow()
+            current_user.points += at.points
+            update_streak(current_user)
+            new_badges = check_and_award_badges(current_user)
+            db.session.commit()
+            return jsonify({
+                'success': True, 'verified': True,
+                'points_awarded': at.points,
+                'total_points': current_user.points,
+                'streak': current_user.streak,
+                'feedback': feedback,
+                'new_badges': [{'name': b.name, 'icon': b.icon} for b in new_badges]
+            })
+        else:
+            try:
+                os.remove(photo_path)
+            except OSError:
+                pass
+            db.session.commit()
+            return jsonify({'success': False, 'verified': False, 'feedback': feedback})
+    except Exception:  # noqa: BLE001 — always answer with JSON, never a 500 HTML page
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
         return jsonify({
-            'success': True, 'verified': True,
-            'points_awarded': at.points,
-            'total_points': current_user.points,
-            'streak': current_user.streak,
-            'feedback': feedback,
-            'new_badges': [{'name': b.name, 'icon': b.icon} for b in new_badges]
-        })
-    else:
-        try:
-            os.remove(photo_path)
-        except OSError:
-            pass
-        db.session.commit()
-        return jsonify({'success': False, 'verified': False, 'feedback': feedback})
+            'success': False, 'verified': False,
+            'message': 'Verification failed on the server. Please try again.'
+        }), 200
 
 
 @app.route('/map')
