@@ -44,7 +44,26 @@
       "Bash(HF_HUB_DISABLE_XET=1 python -c \"from huggingface_hub import hf_hub_download; print\\(hf_hub_download\\('Qwen/Qwen2.5-3B-Instruct-GGUF','qwen2.5-3b-instruct-q4_k_m.gguf'\\)\\)\")",
       "Bash(python -m py_compile F:/Thrive365/app.py)",
       "PowerShell(Get-Command python, py, python3, python3.12, python3.13, python3.14 -ErrorAction SilentlyContinue)",
-      "PowerShell($py = \"$env:LOCALAPPDATA\\\\Programs\\\\Python\\\\Python312\\\\python.exe\"; if \\(-not \\(Test-Path $py\\)\\) { $py = \\(Get-ChildItem \"C:\\\\Users\\\\Antonio Ivanov\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; if \\(-not $py\\) { $py = \\(Get-ChildItem \"C:\\\\Program Files\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; & $py --version; & $py -m venv .venv)"
+      "PowerShell($py = \"$env:LOCALAPPDATA\\\\Programs\\\\Python\\\\Python312\\\\python.exe\"; if \\(-not \\(Test-Path $py\\)\\) { $py = \\(Get-ChildItem \"C:\\\\Users\\\\Antonio Ivanov\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; if \\(-not $py\\) { $py = \\(Get-ChildItem \"C:\\\\Program Files\\\\Python312\\\\python.exe\" -ErrorAction SilentlyContinue\\).FullName }; & $py --version; & $py -m venv .venv)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(curl -s -c /tmp/thrive_cookies.txt http://localhost:5001/login/demo -L -o /dev/null)",
+      "Bash(curl -s -b /tmp/thrive_cookies.txt -X POST http://localhost:5001/api/route -H 'Content-Type: application/json' -d '{\"from\": [42.5048, 27.4626], \"to\": [42.5100, 27.4700], \"mode\": \"walk\", \"prefer\": \"fast\"}')",
+      "Bash(curl -s -b /tmp/thrive_cookies.txt http://localhost:5001/map -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s -b /tmp/thrive_cookies.txt http://localhost:5001/api/hazards)",
+      "Bash(git rm *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('route:', 'ok' if d.get\\('ok'\\) else 'FAIL', '-', d.get\\('distance_m', d.get\\('error'\\)\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s http://localhost:5001/login/demo -I)",
+      "Bash(python3 app.py > /tmp/flask.log 2>&1 & *)",
+      "Bash(curl -s -c /tmp/c3.txt -X POST http://localhost:5001/register -d 'name=Test Warm&email=test_warm@thrive365.bg&password=testpass123' -o /dev/null -w 'register: %{http_code}\\\\n')",
+      "Bash(python3 -c \"import time; print\\(time.time\\(\\)\\)\")",
+      "Bash(curl -s -b /tmp/c3.txt -X POST http://localhost:5001/onboarding -d 'neighborhood=Лазур&transport=bike&home_type=apartment&garden_access=balcony&household_size=2&interests=cycling&interests=recycling&time_commitment=medium&activity_level=medium&age_range=adult' -o /dev/null -w 'onboarding: %{http_code}\\\\n')",
+      "Bash(python3 -c 'print\\(f'\\\\''elapsed: {\\(__TRACKED_VAR__ - __TRACKED_VAR__\\):.2f}s'\\\\''\\)')",
+      "Bash(curl -s -c /tmp/c4.txt -L -X POST http://localhost:5001/register --data-urlencode 'name=Test Warm' --data-urlencode email=__TRACKED_VAR__ --data-urlencode password=testpass123 --data-urlencode confirm=testpass123 -o /dev/null -w 'register: %{http_code} \\(after redirects\\)\\\\n')",
+      "Bash(curl -s -b /tmp/c4.txt -X POST http://localhost:5001/onboarding --data-urlencode neighborhood=Лазур --data-urlencode transport=bike --data-urlencode home_type=apartment --data-urlencode garden_access=balcony --data-urlencode household_size=2 --data-urlencode interests=cycling --data-urlencode interests=recycling --data-urlencode time_commitment=medium --data-urlencode activity_level=medium --data-urlencode age_range=adult -o /dev/null -w 'onboarding: %{http_code}\\\\n')",
+      "Bash(python3 -c 'print\\(f'\\\\''elapsed: {\\(__TRACKED_VAR__ - __TRACKED_VAR__\\):.2f}s \\(target: <6s, must NEVER hang\\)'\\\\''\\)')"
     ]
   }
 }
