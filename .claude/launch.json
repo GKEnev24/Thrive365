@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "thrive365",
-      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeExecutable": "python3",
       "runtimeArgs": ["app.py"],
       "port": 5001
     }
