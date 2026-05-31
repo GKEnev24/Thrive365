@@ -23,7 +23,21 @@ from services import routing as routing_service
 import thriveai
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'thrive365-dev-secret-key-change-in-production')
+
+# SECRET_KEY signs session cookies. In production this MUST come from the
+# environment — a known value lets anyone forge sessions. We allow a dev
+# fallback only when FLASK_ENV=development (or unset locally), and refuse to
+# boot in production without a real key.
+_secret = os.environ.get('SECRET_KEY')
+if not _secret:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(
+            'SECRET_KEY environment variable is required in production. '
+            'Set one in .env (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`).'
+        )
+    _secret = 'thrive365-dev-secret-key-change-in-production'
+    print('[Thrive365] WARNING: using insecure dev SECRET_KEY. Set SECRET_KEY in .env.')
+app.secret_key = _secret
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///thrive365.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
@@ -470,8 +484,10 @@ def login_demo():
                     last_active_date=date.today() - timedelta(days=1),
                     language_preference='en')
         db.session.add(user)
-    # ensure the demo account is fully onboarded with a sample profile
-    if not user.onboarded:
+    # Ensure the demo account is fully onboarded with a sample profile. We check
+    # `neighborhood` rather than `onboarded` because earlier seeds set the flag
+    # without populating profile fields, which silently disabled personalisation.
+    if not user.neighborhood:
         user.onboarded = True
         user.neighborhood = 'Лазур'
         user.transport = 'car'
@@ -1157,4 +1173,11 @@ with app.app_context():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Debug mode exposes the Werkzeug interactive debugger — anyone reaching the
+    # port can run arbitrary Python via the debugger PIN. Default OFF, opt in
+    # explicitly with FLASK_DEBUG=1 for local development.
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'
+    # Bind to localhost by default; opt in to LAN exposure with FLASK_HOST=0.0.0.0
+    # (e.g. for mobile testing on the same wifi).
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    app.run(debug=debug, host=host, port=5001)
