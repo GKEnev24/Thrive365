@@ -37,6 +37,7 @@ import json
 import base64
 import threading
 import traceback
+import concurrent.futures
 
 # Hugging Face's native Xet downloader (hf_xet) can hang at 0% on some setups —
 # notably Python 3.14 — leaving model downloads stuck forever. Default to the
@@ -71,6 +72,22 @@ try:
     VERIFY_MIN_CONFIDENCE = int(os.environ.get('VERIFY_MIN_CONFIDENCE', '50'))
 except ValueError:
     VERIFY_MIN_CONFIDENCE = 50
+
+# Hard timeout (seconds) on the task-personalisation Qwen call. If the model
+# can't respond within this window we return the original curated task copy.
+# This protects the onboarding/login redirect from a slow CPU inference
+# (Qwen 3B can take 30-60s for a multi-task JSON rewrite on a Mac CPU).
+try:
+    TAILOR_TIMEOUT_S = float(os.environ.get('THRIVE_TAILOR_TIMEOUT', '5'))
+except ValueError:
+    TAILOR_TIMEOUT_S = 5.0
+
+# Background-pool worker used solely to run a single Qwen inference with a
+# wall-clock timeout. A single worker is enough because llama-cpp models are
+# not thread-safe at the inference call level — we never want concurrent
+# generate calls on the same model.
+_tailor_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                    thread_name_prefix='thriveai-tailor')
 
 # How many past turns of conversation to keep as context.
 MAX_HISTORY_TURNS = 12
@@ -454,7 +471,19 @@ Return ONLY a JSON object with a "tasks" array of the same length and order, eac
 {{"tasks": [{{"title_en": "...", "title_bg": "...", "description_en": "...", "description_bg": "..."}}]}}"""
 
     try:
-        data = _qwen_json(prompt)
+        # Run with a hard wall-clock timeout. Onboarding redirects MUST NOT wait
+        # on a 30-60s CPU inference — we'd rather show the curated task copy
+        # immediately than have the browser hang and the user think the app
+        # has crashed. max_tokens kept tight (800 ≈ enough for 5 short tasks
+        # × 2 languages) so the typical happy-path call returns well under 5s.
+        future = _tailor_pool.submit(_qwen_json, prompt, 0.6, 800)
+        try:
+            data = future.result(timeout=TAILOR_TIMEOUT_S)
+        except concurrent.futures.TimeoutError:
+            print(f'[ThriveAI] tailor_daily_tasks exceeded {TAILOR_TIMEOUT_S}s, '
+                  'returning curated copy. The model keeps generating in the '
+                  'background — next task generation will be cached and instant.')
+            return tasks
         if isinstance(data, dict):
             data = data.get('tasks')
         if not isinstance(data, list):

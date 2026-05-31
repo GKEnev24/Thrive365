@@ -84,8 +84,14 @@ def _kickoff_warmup():
         if _warmup_started:
             return
         _warmup_started = True
+        # Vision warmup is opt-in: the multimodal model alone is ~3 GB RAM on
+        # top of the ~2 GB chat model, which causes OOM kills on 8 GB Macs.
+        # When off, the vision model still loads lazily on the first photo
+        # verification (a few-second cold start the user can tolerate, vs. a
+        # crash). Set THRIVE_WARMUP_VISION=1 to pre-load it at startup.
+        warmup_vision = os.environ.get('THRIVE_WARMUP_VISION', '0') == '1'
         threading.Thread(
-            target=thriveai.warmup, kwargs={'vision': True}, daemon=True).start()
+            target=thriveai.warmup, kwargs={'vision': warmup_vision}, daemon=True).start()
 
 
 google = None
